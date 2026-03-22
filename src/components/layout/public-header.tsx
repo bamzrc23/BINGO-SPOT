@@ -13,7 +13,7 @@ export function PublicHeader() {
           href={ROUTES.home}
           className="rounded-lg border-2 border-black bg-white px-3 py-1 text-sm font-black uppercase tracking-wide text-black"
         >
-          Bingo Spot
+          BINGO RETRO SPOT
         </Link>
         <div className="flex items-center gap-3">
           <Link href={ROUTES.register}>

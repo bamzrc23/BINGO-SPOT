@@ -44,13 +44,13 @@ export default async function WalletPage() {
           href={ROUTES.topups}
           className="inline-flex h-11 items-center justify-center rounded-xl border-2 border-black bg-black px-4 text-sm font-bold text-white transition hover:bg-black/90"
         >
-          Ir a Recargas
+          RECARGAR
         </Link>
         <Link
           href={ROUTES.withdrawals}
           className="inline-flex h-11 items-center justify-center rounded-xl border-2 border-black bg-white px-4 text-sm font-bold text-black transition hover:bg-neutral-100"
         >
-          Ir a Retiros
+          RETIRARs
         </Link>
       </div>
 

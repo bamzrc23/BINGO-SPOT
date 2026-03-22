@@ -89,26 +89,7 @@ export function GameRoundDetailCard({
           ) : null}
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-lg border border-border p-3">
-            <p className="text-xs text-muted-foreground">x2 (3 numeros)</p>
-            <p className="mt-1 text-sm font-semibold">
-              {multiplierGroups.x2.length ? multiplierGroups.x2.join(", ") : "-"}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border p-3">
-            <p className="text-xs text-muted-foreground">x3 (1 numero)</p>
-            <p className="mt-1 text-sm font-semibold">
-              {multiplierGroups.x3.length ? multiplierGroups.x3.join(", ") : "-"}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border p-3">
-            <p className="text-xs text-muted-foreground">x5 (1 numero)</p>
-            <p className="mt-1 text-sm font-semibold">
-              {multiplierGroups.x5.length ? multiplierGroups.x5.join(", ") : "-"}
-            </p>
-          </div>
-        </div>
+        
 
         <div className="rounded-lg border border-border p-3">
           <p className="text-xs text-muted-foreground">Bola de la suerte</p>

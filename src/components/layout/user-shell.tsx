@@ -28,7 +28,7 @@ export function UserShell({ children }: UserShellProps) {
               href={ROUTES.dashboard}
               className="rounded-lg border-2 border-black bg-white px-3 py-1 text-sm font-black uppercase tracking-wide text-black"
             >
-              Bingo Spot
+              BINGO RETRO SPOT
             </Link>
             <LogoutButton className="h-9 border-2 border-black bg-black px-3 text-xs text-white hover:bg-black/90 sm:text-sm" />
           </div>

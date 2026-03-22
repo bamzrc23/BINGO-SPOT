@@ -31,13 +31,13 @@ export default async function DashboardPage() {
     metrics = await getUserDashboardMetrics(user.id);
   } catch (error) {
     dashboardError =
-      error instanceof Error ? error.message : "No se pudo cargar el dashboard de usuario.";
+      error instanceof Error ? error.message : "No se pudo cargar el INICIO.";
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-black uppercase tracking-tight text-black">Dashboard de usuario</h1>
+        <h1 className="text-2xl font-black uppercase tracking-tight text-black">INICIO</h1>
         <Badge variant="success">En vivo</Badge>
       </div>
 

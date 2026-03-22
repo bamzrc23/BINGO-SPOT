@@ -15,7 +15,8 @@ export default function buildNextConfig(phase: string): NextConfig {
   return {
     reactStrictMode: true,
     // Evita colisiones entre dev/build cuando ambos procesos existen al mismo tiempo.
-    distDir: isDev ? ".next-dev" : ".next-build",
+    // En produccion (Vercel) debe mantenerse ".next".
+    distDir: isDev ? ".next-dev" : ".next",
     eslint: {
       // next lint esta deprecado en Next 15+; mantenemos build desacoplado del linter.
       ignoreDuringBuilds: true

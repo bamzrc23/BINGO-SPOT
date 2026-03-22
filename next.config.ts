@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
 const WINDOWS_WATCH_IGNORES = [
   "**/System Volume Information/**",
@@ -9,14 +8,9 @@ const WINDOWS_WATCH_IGNORES = [
   "**/hiberfil.sys"
 ];
 
-export default function buildNextConfig(phase: string): NextConfig {
-  const isDev = phase === PHASE_DEVELOPMENT_SERVER;
-
+export default function buildNextConfig(): NextConfig {
   return {
     reactStrictMode: true,
-    // Evita colisiones entre dev/build cuando ambos procesos existen al mismo tiempo.
-    // En produccion (Vercel) debe mantenerse ".next".
-    distDir: isDev ? ".next-dev" : ".next",
     eslint: {
       // next lint esta deprecado en Next 15+; mantenemos build desacoplado del linter.
       ignoreDuringBuilds: true

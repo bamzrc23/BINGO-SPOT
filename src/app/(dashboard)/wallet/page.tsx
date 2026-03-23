@@ -21,7 +21,7 @@ export default async function WalletPage() {
   let walletError: string | null = null;
 
   try {
-    snapshot = await getWalletSnapshotByUserId(user.id, { limit: 30 });
+    snapshot = await getWalletSnapshotByUserId(user.id, { limit: 120 });
   } catch (error) {
     walletError = error instanceof Error ? error.message : "No se pudo cargar la billetera.";
   }

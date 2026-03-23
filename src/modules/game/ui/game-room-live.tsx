@@ -64,6 +64,7 @@ type WalletDbRow = Database["public"]["Tables"]["wallets"]["Row"];
 type BoardView = {
   purchase: BoardPurchaseWithBoards;
   board: BingoBoardRow;
+  displayIndex: number;
   completedLines: BingoLineType[];
   paidLines: BingoLineType[];
   totalPrizePaid: number;
@@ -1050,7 +1051,7 @@ export function GameRoomLive({
   }, [roundDetail?.lineWins]);
 
   const boardViews = useMemo<BoardView[]>(() => {
-    const views: BoardView[] = [];
+    const unsortedViews: Array<Omit<BoardView, "displayIndex">> = [];
 
     purchasesOfDisplayedRound.forEach((purchase) => {
       purchase.boards.forEach((board) => {
@@ -1064,7 +1065,7 @@ export function GameRoomLive({
           ? (lineWinsByBoard.get(board.id) ?? []).reduce((sum, line) => sum + line.prizeAmount, 0)
           : 0;
 
-        views.push({
+        unsortedViews.push({
           purchase,
           board,
           completedLines,
@@ -1074,7 +1075,20 @@ export function GameRoomLive({
       });
     });
 
-    return views;
+    unsortedViews.sort((a, b) => {
+      if (a.purchase.createdAt !== b.purchase.createdAt) {
+        return a.purchase.createdAt.localeCompare(b.purchase.createdAt);
+      }
+      if (a.board.boardIndex !== b.board.boardIndex) {
+        return a.board.boardIndex - b.board.boardIndex;
+      }
+      return a.board.createdAt.localeCompare(b.board.createdAt);
+    });
+
+    return unsortedViews.map((view, index) => ({
+      ...view,
+      displayIndex: index + 1
+    }));
   }, [
     boardMarkedNumbers,
     isDisplayingCurrentRoundBoards,
@@ -1115,7 +1129,7 @@ export function GameRoomLive({
       const matchedBoard = boardViews.find((view) => view.board.id === boardId);
 
       setLineFeedbackMessage(
-        `Linea completada en tabla #${matchedBoard?.board.boardIndex ?? "?"}: ${
+        `Linea completada en tabla #${matchedBoard?.displayIndex ?? "?"}: ${
           LINE_TYPE_LABELS[lineType]
         }.`
       );
@@ -1286,7 +1300,7 @@ export function GameRoomLive({
         cards.push({
           key: `${view.board.id}:${lineType}`,
           boardId: view.board.id,
-          boardIndex: view.board.boardIndex,
+          boardIndex: view.displayIndex,
           lineType,
           missingNumbers,
           appliedMultiplier,
@@ -1373,19 +1387,6 @@ export function GameRoomLive({
           </div>
         </CardHeader>
       </Card>
-
-      {(lineFeedbackMessage || prizeFeedbackMessage) && (
-        <Card className="rounded-[18px] border-4 border-black bg-emerald-100 text-black">
-          <CardContent className="space-y-1 p-4">
-            {lineFeedbackMessage ? (
-              <p className="text-sm font-black text-emerald-700">{lineFeedbackMessage}</p>
-            ) : null}
-            {prizeFeedbackMessage ? (
-              <p className="text-sm font-black text-emerald-700">{prizeFeedbackMessage}</p>
-            ) : null}
-          </CardContent>
-        </Card>
-      )}
 
       {isBootstrapping ? (
         <Card className="rounded-[24px] border-4 border-black bg-neutral-100 text-black">
@@ -1580,6 +1581,16 @@ export function GameRoomLive({
               <CardHeader>
               </CardHeader>
               <CardContent>
+                {(lineFeedbackMessage || prizeFeedbackMessage) && (
+                  <div className="mb-3 rounded-lg border-2 border-black bg-emerald-100 px-3 py-2">
+                    {lineFeedbackMessage ? (
+                      <p className="text-sm font-black text-emerald-800">{lineFeedbackMessage}</p>
+                    ) : null}
+                    {prizeFeedbackMessage ? (
+                      <p className="text-sm font-black text-emerald-800">{prizeFeedbackMessage}</p>
+                    ) : null}
+                  </div>
+                )}
                 <p className="mb-3 rounded-lg border-2 border-black bg-white px-3 py-2 text-sm font-semibold text-black/80">
                   Numeros que te faltan:{" "}
                   {boardViews.length === 0
@@ -1616,14 +1627,23 @@ export function GameRoomLive({
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div>
-                              <p className="text-sm font-black">Tabla #{view.board.boardIndex}</p>
+                              <p className="text-sm font-black">Tabla #{view.displayIndex}</p>
                               <p className="break-all text-xs font-semibold text-black/60">
                                 #{view.purchase.id.slice(0, 8)}
                               </p>
                             </div>
-                            <p className="text-xs font-black text-emerald-700">
-                              {formatCurrency(view.totalPrizePaid)}
-                            </p>
+                            <span
+                              className={cn(
+                                "rounded-md border-2 px-2 py-1 text-xs font-black",
+                                view.totalPrizePaid > 0
+                                  ? "border-emerald-800 bg-emerald-200 text-emerald-900"
+                                  : "border-black/30 bg-neutral-200 text-black/60"
+                              )}
+                            >
+                              {view.totalPrizePaid > 0
+                                ? `Ganado ${formatCurrency(view.totalPrizePaid)}`
+                                : "Ganado $0.00"}
+                            </span>
                           </div>
 
                           <LiveBingoBoardGrid

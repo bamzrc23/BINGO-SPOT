@@ -12,6 +12,7 @@ import {
   listWalletTransactionsByUserId
 } from "@/modules/wallet/infrastructure";
 import type { WalletMovementType } from "@/types/domain";
+import type { Json } from "@/types/database";
 
 function normalizeSupabaseError(error: { message?: string } | null | undefined, fallback: string) {
   if (!error?.message) {
@@ -23,6 +24,98 @@ function normalizeSupabaseError(error: { message?: string } | null | undefined, 
   }
 
   return error.message;
+}
+
+type JsonObject = {
+  [key: string]: Json | undefined;
+};
+
+function asJsonObject(value: Json): JsonObject | null {
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    return value as JsonObject;
+  }
+
+  return null;
+}
+
+function getPrizeRoundIdFromMetadata(metadata: Json): string | null {
+  const jsonObject = asJsonObject(metadata);
+  if (!jsonObject) {
+    return null;
+  }
+
+  const roundId = jsonObject.game_round_id;
+  return typeof roundId === "string" && roundId.length > 0 ? roundId : null;
+}
+
+function consolidatePrizeTransactionsByRound(transactions: WalletSnapshot["transactions"]) {
+  const rowsByRoundId = new Map<string, WalletSnapshot["transactions"]>();
+
+  transactions.forEach((tx) => {
+    if (tx.movementType !== "prize" || tx.direction !== "credit") {
+      return;
+    }
+
+    const roundId = getPrizeRoundIdFromMetadata(tx.metadata);
+    if (!roundId) {
+      return;
+    }
+
+    const current = rowsByRoundId.get(roundId) ?? [];
+    current.push(tx);
+    rowsByRoundId.set(roundId, current);
+  });
+
+  const emittedRoundIds = new Set<string>();
+
+  return transactions.reduce<WalletSnapshot["transactions"]>((acc, tx) => {
+    if (tx.movementType !== "prize" || tx.direction !== "credit") {
+      acc.push(tx);
+      return acc;
+    }
+
+    const roundId = getPrizeRoundIdFromMetadata(tx.metadata);
+    if (!roundId) {
+      acc.push(tx);
+      return acc;
+    }
+
+    if (emittedRoundIds.has(roundId)) {
+      return acc;
+    }
+
+    emittedRoundIds.add(roundId);
+    const rows = rowsByRoundId.get(roundId) ?? [tx];
+    const rowsByCreatedAsc = [...rows].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const oldest = rowsByCreatedAsc[0] ?? tx;
+    const newest = rowsByCreatedAsc[rowsByCreatedAsc.length - 1] ?? tx;
+    const totalAmount =
+      Math.round(rowsByCreatedAsc.reduce((sum, row) => sum + Math.round(row.amount * 100), 0)) / 100;
+    const lineCount = rowsByCreatedAsc.length;
+
+    acc.push({
+      id: `prize-round:${roundId}`,
+      walletId: newest.walletId,
+      userId: newest.userId,
+      movementType: "prize",
+      direction: "credit",
+      amount: totalAmount,
+      balanceBefore: oldest.balanceBefore,
+      balanceAfter: newest.balanceAfter,
+      operationRef: `Partida #${roundId.slice(0, 8)} (${lineCount} linea${lineCount === 1 ? "" : "s"})`,
+      operationSource: newest.operationSource,
+      metadata: {
+        ...(asJsonObject(newest.metadata) ?? {}),
+        game_round_id: roundId,
+        aggregated_line_count: lineCount,
+        is_round_total: true
+      },
+      createdBy: newest.createdBy,
+      createdAt: newest.createdAt
+    });
+
+    return acc;
+  }, []);
 }
 
 type ApplyWalletInput = {
@@ -111,6 +204,6 @@ export async function getWalletSnapshotByUserId(
 
   return {
     wallet,
-    transactions
+    transactions: consolidatePrizeTransactionsByRound(transactions)
   };
 }

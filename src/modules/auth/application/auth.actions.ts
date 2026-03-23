@@ -1,9 +1,9 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { ROUTES } from "@/lib/constants/routes";
-import { siteConfig } from "@/lib/constants/site";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   forgotPasswordSchema,
@@ -47,6 +47,25 @@ function buildSuccessState(message: string): AuthFormState {
 function parseStringField(formData: FormData, key: string): string {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
+}
+
+async function resolveRuntimeBaseUrl(): Promise<string> {
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  const requestHeaders = await headers();
+  const forwardedHost = requestHeaders.get("x-forwarded-host");
+  const host = forwardedHost ?? requestHeaders.get("host");
+  const forwardedProto = requestHeaders.get("x-forwarded-proto");
+  const proto = forwardedProto ?? (host?.includes("localhost") ? "http" : "https");
+
+  if (host) {
+    return `${proto}://${host}`;
+  }
+
+  return "http://localhost:3000";
 }
 
 function isDuplicateEmailErrorMessage(message?: string): boolean {
@@ -118,7 +137,8 @@ export async function registerAction(
     });
   }
 
-  const callbackUrl = `${siteConfig.url}/auth/callback?next=${encodeURIComponent(ROUTES.dashboard)}`;
+  const baseUrl = await resolveRuntimeBaseUrl();
+  const callbackUrl = `${baseUrl}/auth/callback?next=${encodeURIComponent(ROUTES.login)}`;
 
   const { data, error } = await signUpWithPassword(supabase, {
     ...parsed.data,
@@ -212,7 +232,8 @@ export async function forgotPasswordAction(
   }
 
   const supabase = await createServerSupabaseClient();
-  const redirectTo = `${siteConfig.url}/auth/callback?next=${encodeURIComponent(ROUTES.resetPassword)}`;
+  const baseUrl = await resolveRuntimeBaseUrl();
+  const redirectTo = `${baseUrl}/auth/callback?next=${encodeURIComponent(ROUTES.resetPassword)}`;
 
   const { error } = await sendPasswordRecoveryEmail(supabase, parsed.data.email, redirectTo);
   if (error) {

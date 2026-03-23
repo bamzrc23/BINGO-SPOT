@@ -11,6 +11,27 @@ type WalletTransactionsTableProps = {
 };
 
 export function WalletTransactionsTable({ transactions }: WalletTransactionsTableProps) {
+  const resolveMovementLabel = (tx: WalletTransactionRow) => {
+    const metadata =
+      typeof tx.metadata === "object" && tx.metadata !== null && !Array.isArray(tx.metadata)
+        ? tx.metadata
+        : null;
+
+    const isRoundTotal = metadata?.is_round_total === true;
+    if (!isRoundTotal) {
+      return WALLET_MOVEMENT_LABELS[tx.movementType];
+    }
+
+    const lineCountValue = metadata.aggregated_line_count;
+    const lineCount = typeof lineCountValue === "number" ? lineCountValue : null;
+
+    if (!lineCount || lineCount <= 0) {
+      return "Premio por partida";
+    }
+
+    return `Premio por partida (${lineCount} linea${lineCount === 1 ? "" : "s"})`;
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -39,7 +60,7 @@ export function WalletTransactionsTable({ transactions }: WalletTransactionsTabl
                 {transactions.map((tx) => (
                   <tr key={tx.id} className="border-b border-border/60 align-top">
                     <td className="px-2 py-2">{formatDateTime(tx.createdAt)}</td>
-                    <td className="px-2 py-2">{WALLET_MOVEMENT_LABELS[tx.movementType]}</td>
+                    <td className="px-2 py-2">{resolveMovementLabel(tx)}</td>
                     <td className="px-2 py-2">
                       <Badge variant={tx.direction === "credit" ? "success" : "default"}>
                         {WALLET_DIRECTION_LABELS[tx.direction]}

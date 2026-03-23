@@ -320,6 +320,7 @@ export function GameRoomLive({
   const currentRoundIdRef = useRef<string | null>(initialRound?.round.id ?? null);
   const lastSpokenDrawIdRef = useRef<string | null>(null);
   const announcedFinishedRoundIdRef = useRef<string | null>(null);
+  const announcedPrestartRoundIdRef = useRef<string | null>(null);
 
   const speakText = useCallback((text: string) => {
     if (typeof window === "undefined" || typeof window.speechSynthesis === "undefined") {
@@ -1278,6 +1279,19 @@ export function GameRoomLive({
     );
   }, [roundDetail, speakText]);
 
+  useEffect(() => {
+    if (!roundDetail || !isPrestartAnimation || roundDetail.round.status !== "active") {
+      return;
+    }
+
+    if (announcedPrestartRoundIdRef.current === roundDetail.round.id) {
+      return;
+    }
+
+    announcedPrestartRoundIdRef.current = roundDetail.round.id;
+    speakText("Iniciamos una nueva partida. Revelando multiplicadores.");
+  }, [isPrestartAnimation, roundDetail, speakText]);
+
   const missingLineCards = useMemo<MissingLineCandidate[]>(() => {
     const cards: MissingLineCandidate[] = [];
 
@@ -1354,16 +1368,33 @@ export function GameRoomLive({
 
   return (
     <div className="min-w-0 space-y-6 overflow-x-hidden text-[15px]">
+      {lineFeedbackMessage || prizeFeedbackMessage ? (
+        <div className="fixed inset-x-3 top-20 z-50 sm:hidden">
+          <div className="rounded-lg border-2 border-black bg-emerald-100 px-3 py-2 shadow-soft">
+            {lineFeedbackMessage ? (
+              <p className="text-xs font-black text-emerald-800">{lineFeedbackMessage}</p>
+            ) : null}
+            {prizeFeedbackMessage ? (
+              <p className="text-xs font-black text-emerald-800">{prizeFeedbackMessage}</p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {winCelebration ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
-          <Card className="w-full max-w-lg border-success bg-success/10 text-center shadow-soft">
+          <Card className="w-full max-w-xs border-success bg-success/10 text-center shadow-soft sm:max-w-lg">
             <CardHeader>
-              <CardTitle className="text-3xl font-black text-success">Ganaste!</CardTitle>
-              <p className="text-sm text-success/90">Partida #{winCelebration.roundId.slice(0, 8)}</p>
+              <CardTitle className="text-2xl font-black text-success sm:text-3xl">Ganaste!</CardTitle>
+              <p className="text-xs text-success/90 sm:text-sm">
+                Partida #{winCelebration.roundId.slice(0, 8)}
+              </p>
             </CardHeader>
             <CardContent className="space-y-2">
-              <p className="text-sm text-success/90">Premio total acreditado automaticamente</p>
-              <p className="text-4xl font-black text-success">
+              <p className="text-xs text-success/90 sm:text-sm">
+                Premio total acreditado automaticamente
+              </p>
+              <p className="text-3xl font-black text-success sm:text-4xl">
                 {formatCurrency(winCelebration.amount)}
               </p>
             </CardContent>

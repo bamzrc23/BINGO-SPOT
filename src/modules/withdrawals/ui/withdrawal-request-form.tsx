@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState } from "react";
 
 import { createWithdrawalRequestAction } from "@/modules/withdrawals/application";
 import { INITIAL_WITHDRAWAL_FORM_STATE } from "@/modules/withdrawals/domain";
@@ -13,29 +13,13 @@ export function WithdrawalRequestForm() {
     createWithdrawalRequestAction,
     INITIAL_WITHDRAWAL_FORM_STATE
   );
-  const redirectedUrlRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (state.status !== "success" || !state.redirectUrl) {
-      return;
-    }
-
-    if (redirectedUrlRef.current === state.redirectUrl) {
-      return;
-    }
-
-    redirectedUrlRef.current = state.redirectUrl;
-    window.location.assign(state.redirectUrl);
-  }, [state.redirectUrl, state.status]);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Solicitar retiro</CardTitle>
         <CardDescription>
-          Banco Pichincha y Banco Guayaquil no aplican comision. Otros bancos descuentan comision
-          interbancaria. Al enviar, te redirigimos a WhatsApp para reportar el codigo de
-          validacion.
+          El retiro se registra en el sistema y pasa a revision manual del administrador.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -44,17 +28,16 @@ export function WithdrawalRequestForm() {
             <label htmlFor="withdrawal-bankName" className="text-sm font-medium">
               Banco
             </label>
-            <Input
+            <select
               id="withdrawal-bankName"
               name="bankName"
-              list="withdrawal-bank-options"
-              placeholder="Ej: Banco Pichincha"
+              className="flex h-10 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-primary/30"
               required
-            />
-            <datalist id="withdrawal-bank-options">
-              <option value="Banco Pichincha" />
-              <option value="Banco Guayaquil" />
-            </datalist>
+              defaultValue="Banco Pichincha"
+            >
+              <option value="Banco Pichincha">Banco Pichincha</option>
+              <option value="Banco Guayaquil">Banco Guayaquil</option>
+            </select>
             <WithdrawalFieldError errors={state.fieldErrors?.bankName} />
           </div>
 
@@ -125,9 +108,9 @@ export function WithdrawalRequestForm() {
               id="withdrawal-amountRequested"
               name="amountRequested"
               type="number"
-              min="0.01"
+              min="10"
               step="0.01"
-              placeholder="20.00"
+              placeholder="10.00"
               required
             />
             <WithdrawalFieldError errors={state.fieldErrors?.amountRequested} />
@@ -136,7 +119,7 @@ export function WithdrawalRequestForm() {
           <WithdrawalFormFeedback state={state} />
 
           <Button type="submit" disabled={isPending}>
-            {isPending ? "Creando solicitud..." : "Solicitar y continuar por WhatsApp"}
+            {isPending ? "Creando solicitud..." : "Solicitar retiro"}
           </Button>
         </form>
       </CardContent>

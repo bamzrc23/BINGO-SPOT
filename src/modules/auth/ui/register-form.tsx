@@ -12,6 +12,21 @@ import { Button, Input } from "@/components/ui";
 
 export function RegisterForm() {
   const [state, formAction, isPending] = useActionState(registerAction, INITIAL_AUTH_FORM_STATE);
+  const normalizedMessage = state.message?.toLowerCase() ?? "";
+  const emailErrors = state.fieldErrors?.email ?? [];
+  const nicknameErrors = state.fieldErrors?.nickname ?? [];
+  const duplicateEmailDetected =
+    normalizedMessage.includes("correo ya esta registrado") ||
+    emailErrors.some((error) => {
+      const normalized = error.toLowerCase();
+      return normalized.includes("registrado") || normalized.includes("usa otro correo");
+    });
+  const duplicateNicknameDetected =
+    normalizedMessage.includes("usuario ya esta en uso") ||
+    nicknameErrors.some((error) => {
+      const normalized = error.toLowerCase();
+      return normalized.includes("en uso") || normalized.includes("otro usuario");
+    });
 
   return (
     <form action={formAction} className="space-y-4">
@@ -48,6 +63,24 @@ export function RegisterForm() {
         <FieldError errors={state.fieldErrors?.email} />
       </div>
 
+      {duplicateEmailDetected ? (
+        <div className="space-y-2 rounded-xl border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
+          <p className="font-semibold">Correo ya registrado.</p>
+          <p>Ese correo ya tiene una cuenta. Inicia sesion o recupera tu contrasena.</p>
+          <div className="flex flex-wrap gap-3">
+            <Link href={ROUTES.login} className="font-semibold underline underline-offset-2">
+              Ir a iniciar sesion
+            </Link>
+            <Link
+              href={ROUTES.forgotPassword}
+              className="font-semibold underline underline-offset-2"
+            >
+              Recuperar contrasena
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
       <div className="space-y-1.5">
         <label htmlFor="phone" className="text-sm font-medium">
           Telefono
@@ -78,6 +111,13 @@ export function RegisterForm() {
           <FieldError errors={state.fieldErrors?.confirmPassword} />
         </div>
       </div>
+
+      {duplicateNicknameDetected ? (
+        <div className="rounded-xl border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
+          <p className="font-semibold">Usuario o nickname en uso.</p>
+          <p>Elige otro nombre de usuario para completar el registro.</p>
+        </div>
+      ) : null}
 
       <FormFeedback state={state} />
 

@@ -22,20 +22,11 @@ import {
   attachReceiptUrls,
   createBankTransferTopup,
   createPayphoneTopup,
-  deleteReceiptByPath,
   listTopupsByUserId,
   listTopupsForAdmin,
   reviewBankTransferTopup,
-  uploadTopupReceipt
 } from "@/modules/payments/infrastructure";
 import type { Database } from "@/types/database";
-
-const MAX_RECEIPT_SIZE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_RECEIPT_MIME_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "application/pdf"
-]);
 
 function normalizeTopupError(error: { message?: string } | null | undefined, fallback: string) {
   const message = error?.message ?? "";
@@ -70,18 +61,21 @@ function normalizeTopupError(error: { message?: string } | null | undefined, fal
   return message;
 }
 
-function assertReceiptFile(file: File) {
-  if (!(file instanceof File) || file.size <= 0) {
-    throw new Error("Debes adjuntar un comprobante valido.");
+function sanitizeTopupReason(reason?: string): string | null {
+  if (!reason) {
+    return null;
   }
 
-  if (file.size > MAX_RECEIPT_SIZE_BYTES) {
-    throw new Error("El comprobante excede el limite de 5MB.");
+  const normalized = reason.trim();
+  if (!normalized) {
+    return null;
   }
 
-  if (!ALLOWED_RECEIPT_MIME_TYPES.has(file.type)) {
-    throw new Error("El comprobante debe ser JPG, PNG o PDF.");
+  if (normalized.length > 300) {
+    throw new Error("El motivo no puede superar 300 caracteres.");
   }
+
+  return normalized;
 }
 
 type ListTopupsOptions = {
@@ -169,7 +163,7 @@ export async function createPayphoneTopupForUser(
 type CreateBankTransferInput = {
   amount: number;
   clientReference?: string;
-  receiptFile: File;
+  reason?: string;
 };
 
 type CreateBankTransferResult = {
@@ -188,8 +182,7 @@ export async function createBankTransferTopupForUser(
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message ?? "Datos de recarga invalidos.");
   }
-
-  assertReceiptFile(input.receiptFile);
+  const reason = sanitizeTopupReason(input.reason);
 
   const supabase = await createServerSupabaseClient();
   const {
@@ -203,27 +196,20 @@ export async function createBankTransferTopupForUser(
   const verificationCode = createVerificationCode("REC");
   const userTransferReference = parsed.data.clientReference ?? null;
 
-  const uploadResult = await uploadTopupReceipt(supabase, user.id, input.receiptFile);
-  if (uploadResult.error || !uploadResult.data) {
-    throw new Error(
-      normalizeTopupError(uploadResult.error, "No se pudo subir el comprobante.")
-    );
-  }
-
   const { data, error } = await createBankTransferTopup(supabase, {
     amount: parsed.data.amount,
     clientReference: verificationCode,
-    receiptPath: uploadResult.data,
+    receiptPath: null,
     payload: {
       channel: "web",
       initiated_by: user.id,
       verification_code: verificationCode,
-      user_transfer_reference: userTransferReference
+      user_transfer_reference: userTransferReference,
+      user_reason: reason
     }
   });
 
   if (error || !data) {
-    await deleteReceiptByPath(supabase, uploadResult.data);
     throw new Error(normalizeTopupError(error, "No se pudo crear la solicitud de transferencia."));
   }
 

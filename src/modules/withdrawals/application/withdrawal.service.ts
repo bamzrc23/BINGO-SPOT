@@ -73,6 +73,11 @@ type ListWithdrawalsOptions = {
   status?: "pending" | "approved" | "paid" | "rejected";
 };
 
+function normalizeQueryLimit(limit: number | undefined, fallback: number): number {
+  const raw = typeof limit === "number" && Number.isFinite(limit) ? Math.trunc(limit) : fallback;
+  return Math.min(Math.max(raw, 1), 100);
+}
+
 type CreateWithdrawalRequestResult = {
   withdrawal: WithdrawalRow;
   verificationCode: string;
@@ -109,8 +114,9 @@ export async function getWithdrawalsByUserId(
   userId: string,
   options?: ListWithdrawalsOptions
 ): Promise<WithdrawalRow[]> {
+  const safeLimit = normalizeQueryLimit(options?.limit, 30);
   const query = withdrawalHistoryQuerySchema.safeParse({
-    limit: options?.limit ?? 30,
+    limit: safeLimit,
     status: options?.status
   });
 
@@ -134,8 +140,9 @@ export async function getWithdrawalsByUserId(
 }
 
 export async function getWithdrawalsForAdmin(options?: ListWithdrawalsOptions): Promise<WithdrawalRow[]> {
+  const safeLimit = normalizeQueryLimit(options?.limit, 60);
   const query = withdrawalHistoryQuerySchema.safeParse({
-    limit: options?.limit ?? 60,
+    limit: safeLimit,
     status: options?.status
   });
 

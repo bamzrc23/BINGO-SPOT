@@ -7,7 +7,7 @@ import { SectionContainer } from "@/components/layout/section-container";
 
 export function PublicHeader() {
   return (
-    <header className="border-b-4 border-black bg-neutral-100">
+    <header className="border-b-4 border-black bg-white/90 backdrop-blur-sm">
       <SectionContainer className="flex h-16 items-center justify-between">
         <Link
           href={ROUTES.home}

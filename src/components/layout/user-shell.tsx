@@ -20,8 +20,8 @@ const navItems = [
 
 export function UserShell({ children }: UserShellProps) {
   return (
-    <div className="min-h-screen bg-neutral-300">
-      <header className="border-b-4 border-black bg-neutral-100">
+    <div className="min-h-screen bg-transparent">
+      <header className="border-b-4 border-black bg-white/90 backdrop-blur-sm">
         <SectionContainer className="py-2 sm:flex sm:min-h-16 sm:items-center sm:justify-between sm:py-1">
           <div className="flex items-center justify-between gap-3">
             <Link
@@ -48,9 +48,9 @@ export function UserShell({ children }: UserShellProps) {
           </div>
         </SectionContainer>
       </header>
-      <main className="bg-neutral-300">
+      <main className="bg-transparent">
         <SectionContainer className="py-6">
-          <div className="rounded-[28px] border-4 border-black bg-neutral-200 p-2 sm:p-3">
+          <div className="rounded-[28px] border-4 border-black bg-neutral-100/88 p-2 backdrop-blur-[1px] sm:p-3">
             {children}
           </div>
         </SectionContainer>

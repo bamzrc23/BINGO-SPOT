@@ -8,6 +8,10 @@ import {
   GAME_DEFAULT_BASE_LINE_PRIZE,
   GAME_ROOM_AUTOMATION_TICK_MS,
   GAME_ROOM_DRAW_INTERVAL_SECONDS,
+  GAME_ROUND_DEFAULT_EXTRA_SPINS_P1,
+  GAME_ROUND_DEFAULT_EXTRA_SPINS_P2,
+  GAME_ROUND_DEFAULT_EXTRA_SPINS_P3,
+  GAME_ROUND_DEFAULT_LUCKY_BALL_PROBABILITY,
   GAME_ROOM_POLL_FALLBACK_MS,
   GAME_ROOM_PRESTART_ANIMATION_SECONDS,
   GAME_ROOM_ROUND_COOLDOWN_SECONDS,
@@ -313,6 +317,32 @@ export function GameRoomLive({
     new Set(initialRound?.lineWins.map((line) => line.id) ?? [])
   );
   const currentRoundIdRef = useRef<string | null>(initialRound?.round.id ?? null);
+  const lastSpokenDrawIdRef = useRef<string | null>(null);
+  const announcedFinishedRoundIdRef = useRef<string | null>(null);
+
+  const speakText = useCallback((text: string) => {
+    if (typeof window === "undefined" || typeof window.speechSynthesis === "undefined") {
+      return;
+    }
+
+    const synthesis = window.speechSynthesis;
+    const utterance = new SpeechSynthesisUtterance(text);
+    const spanishVoice = synthesis
+      .getVoices()
+      .find((voice) => voice.lang?.toLowerCase().startsWith("es"));
+
+    if (spanishVoice) {
+      utterance.voice = spanishVoice;
+      utterance.lang = spanishVoice.lang;
+    } else {
+      utterance.lang = "es-EC";
+    }
+
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    synthesis.cancel();
+    synthesis.speak(utterance);
+  }, []);
 
   const fetchCurrentRoundDetail = useCallback(async (): Promise<GameRoundDetail | null> => {
     const { data: activeRows, error: activeError } = await supabase
@@ -504,7 +534,11 @@ export function GameRoomLive({
       p_draw_interval_seconds: GAME_ROOM_DRAW_INTERVAL_SECONDS,
       p_prestart_animation_seconds: GAME_ROOM_PRESTART_ANIMATION_SECONDS,
       p_round_cooldown_seconds: GAME_ROOM_ROUND_COOLDOWN_SECONDS,
-      p_base_prize: GAME_DEFAULT_BASE_LINE_PRIZE
+      p_base_prize: GAME_DEFAULT_BASE_LINE_PRIZE,
+      p_lucky_ball_probability: GAME_ROUND_DEFAULT_LUCKY_BALL_PROBABILITY,
+      p_extra_spins_p1: GAME_ROUND_DEFAULT_EXTRA_SPINS_P1,
+      p_extra_spins_p2: GAME_ROUND_DEFAULT_EXTRA_SPINS_P2,
+      p_extra_spins_p3: GAME_ROUND_DEFAULT_EXTRA_SPINS_P3
     });
 
     if (error) {
@@ -791,6 +825,7 @@ export function GameRoomLive({
     setHighlightedBoardId(null);
     setRollingDrawNumber(null);
     setIsRollingLocked(false);
+    lastSpokenDrawIdRef.current = null;
   }, [roundDetail?.lineWins, roundDetail?.round.id]);
 
   useEffect(() => {
@@ -922,14 +957,6 @@ export function GameRoomLive({
     [revealedDraws]
   );
 
-  const multipliersByNumber = useMemo(() => {
-    const map = new Map<number, number>();
-    roundDetail?.multipliers.forEach((item) => {
-      map.set(item.numberValue, item.multiplier);
-    });
-    return map;
-  }, [roundDetail?.multipliers]);
-
   const groupedMultipliers = useMemo(() => {
     return {
       x2:
@@ -955,6 +982,22 @@ export function GameRoomLive({
       return a.numberValue - b.numberValue;
     });
   }, [roundDetail?.multipliers]);
+
+  const visibleRoundMultipliers = useMemo(() => {
+    if (!isPrestartAnimation) {
+      return roundDetail?.multipliers ?? [];
+    }
+
+    return multiplierSlots.slice(0, prestartMultiplierRevealCount);
+  }, [isPrestartAnimation, multiplierSlots, prestartMultiplierRevealCount, roundDetail?.multipliers]);
+
+  const visibleMultipliersByNumber = useMemo(() => {
+    const map = new Map<number, number>();
+    visibleRoundMultipliers.forEach((item) => {
+      map.set(item.numberValue, item.multiplier);
+    });
+    return map;
+  }, [visibleRoundMultipliers]);
 
   const displayedBoardsRoundId = useMemo(() => {
     const currentRoundId = roundDetail?.round.id ?? null;
@@ -992,8 +1035,8 @@ export function GameRoomLive({
     [isDisplayingCurrentRoundBoards, markedNumbers]
   );
   const boardMultipliersByNumber = useMemo(
-    () => (isDisplayingCurrentRoundBoards ? multipliersByNumber : new Map<number, number>()),
-    [isDisplayingCurrentRoundBoards, multipliersByNumber]
+    () => (isDisplayingCurrentRoundBoards ? visibleMultipliersByNumber : new Map<number, number>()),
+    [isDisplayingCurrentRoundBoards, visibleMultipliersByNumber]
   );
 
   const lineWinsByBoard = useMemo(() => {
@@ -1176,6 +1219,51 @@ export function GameRoomLive({
   const calledNumbersTarget =
     roundDetail?.round.totalDrawCount ?? roundDetail?.round.baseDrawCount ?? 9;
 
+  useEffect(() => {
+    if (!currentDraw || phase !== "active" || !isCurrentBallSettled) {
+      return;
+    }
+
+    if (lastSpokenDrawIdRef.current === currentDraw.id) {
+      return;
+    }
+
+    lastSpokenDrawIdRef.current = currentDraw.id;
+    const isLuckyEventDraw =
+      Boolean(luckyMarkerOrder) && currentDraw.drawOrder === luckyMarkerOrder;
+
+    if (isLuckyEventDraw && (roundDetail?.round.luckyBallExtraSpins ?? 0) > 0) {
+      const extraSpins = roundDetail?.round.luckyBallExtraSpins ?? 0;
+      const spinsWord = extraSpins === 1 ? "giro" : "giros";
+      speakText(`Numero ${currentDraw.numberValue}. Bola de la suerte. ${extraSpins} ${spinsWord} extra.`);
+      return;
+    }
+
+    speakText(`Numero ${currentDraw.numberValue}.`);
+  }, [
+    currentDraw,
+    phase,
+    isCurrentBallSettled,
+    luckyMarkerOrder,
+    roundDetail?.round.luckyBallExtraSpins,
+    speakText
+  ]);
+
+  useEffect(() => {
+    if (!roundDetail || roundDetail.round.status !== "finished") {
+      return;
+    }
+
+    if (announcedFinishedRoundIdRef.current === roundDetail.round.id) {
+      return;
+    }
+
+    announcedFinishedRoundIdRef.current = roundDetail.round.id;
+    speakText(
+      `Partida terminada. Iniciamos en ${GAME_ROOM_ROUND_COOLDOWN_SECONDS} segundos la siguiente. Compra tus tablas ahora.`
+    );
+  }, [roundDetail, speakText]);
+
   const missingLineCards = useMemo<MissingLineCandidate[]>(() => {
     const cards: MissingLineCandidate[] = [];
 
@@ -1183,10 +1271,16 @@ export function GameRoomLive({
       ALL_LINE_TYPES.forEach((lineType) => {
         const lineNumbers = getLineNumbers(view.board.grid, lineType);
         const missingNumbers = lineNumbers.filter((numberValue) => !boardMarkedNumbers.has(numberValue));
-        const appliedMultiplier = lineNumbers.reduce((acc, numberValue) => {
-          const multiplier = boardMultipliersByNumber.get(numberValue) ?? 1;
-          return acc * multiplier;
-        }, 1);
+        let appliedMultiplier = 0;
+        lineNumbers.forEach((numberValue) => {
+          const multiplier = boardMultipliersByNumber.get(numberValue);
+          if (multiplier) {
+            appliedMultiplier += multiplier;
+          }
+        });
+        if (appliedMultiplier <= 0) {
+          appliedMultiplier = 1;
+        }
         const isPaid = view.paidLines.includes(lineType);
 
         cards.push({

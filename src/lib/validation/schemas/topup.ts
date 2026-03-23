@@ -28,7 +28,7 @@ export const createPayphoneTopupSchema = z.object({
 export const createBankTransferTopupSchema = z.object({
   amount: topupAmountSchema,
   clientReference: topupReferenceSchema,
-  receiptPath: z.string().trim().min(1, "El comprobante es obligatorio").max(255)
+  receiptPath: z.string().trim().max(255).optional()
 });
 
 export const topupHistoryQuerySchema = z.object({

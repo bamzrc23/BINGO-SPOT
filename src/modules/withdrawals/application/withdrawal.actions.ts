@@ -3,8 +3,6 @@
 import { revalidatePath } from "next/cache";
 
 import { ROUTES } from "@/lib/constants/routes";
-import { env } from "@/lib/env";
-import { buildWhatsAppUrl } from "@/lib/utils";
 import {
   createWithdrawalRequestForUser,
   markWithdrawalAsPaidByAdmin,
@@ -40,26 +38,6 @@ function parseStringField(formData: FormData, key: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function buildWithdrawalWhatsAppMessage(args: {
-  verificationCode: string;
-  amountRequested: number;
-  amountNet: number;
-  withdrawalId: string;
-  userId: string;
-  bankName: string;
-}): string {
-  return [
-    "Hola, solicito validar un retiro.",
-    `Codigo: ${args.verificationCode}`,
-    `Monto solicitado: USD ${args.amountRequested.toFixed(2)}`,
-    `Monto neto: USD ${args.amountNet.toFixed(2)}`,
-    `Banco: ${args.bankName}`,
-    `Solicitud: ${args.withdrawalId}`,
-    `Usuario: ${args.userId}`,
-    "Quedo atento a su aprobacion."
-  ].join("\n");
-}
-
 export async function createWithdrawalRequestAction(
   _previousState: WithdrawalFormState = INITIAL_WITHDRAWAL_FORM_STATE,
   formData: FormData
@@ -78,13 +56,7 @@ export async function createWithdrawalRequestAction(
       });
     }
 
-    if (!env.ADMIN_WHATSAPP_NUMBER) {
-      return buildErrorState(
-        "Falta configurar ADMIN_WHATSAPP_NUMBER en el servidor para enviar la solicitud por WhatsApp."
-      );
-    }
-
-    const { withdrawal, verificationCode } = await createWithdrawalRequestForUser({
+    const { verificationCode } = await createWithdrawalRequestForUser({
       bankName,
       accountType,
       accountNumber,
@@ -93,25 +65,14 @@ export async function createWithdrawalRequestAction(
       amountRequested: Number(amountRequested)
     });
 
-    const whatsappMessage = buildWithdrawalWhatsAppMessage({
-      verificationCode,
-      amountRequested: withdrawal.amountRequested,
-      amountNet: withdrawal.amountNet,
-      withdrawalId: withdrawal.id,
-      userId: withdrawal.userId,
-      bankName: withdrawal.bankName
-    });
-    const redirectUrl = buildWhatsAppUrl(env.ADMIN_WHATSAPP_NUMBER, whatsappMessage);
-
     revalidatePath(ROUTES.withdrawals);
     revalidatePath(ROUTES.wallet);
     revalidatePath(ROUTES.adminWithdrawals);
 
     return buildSuccessState(
-      `Solicitud de retiro creada con codigo ${verificationCode}. Redirigiendo a WhatsApp para validacion.`,
+      `Solicitud de retiro creada con codigo ${verificationCode}. Se envio a revision administrativa.`,
       {
-        verificationCode,
-        redirectUrl
+        verificationCode
       }
     );
   } catch (error) {

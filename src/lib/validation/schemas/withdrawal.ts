@@ -4,20 +4,25 @@ import { uuidSchema } from "@/lib/validation/schemas/common";
 
 const holderIdRegex = /^[0-9]{10,13}$/;
 const accountNumberRegex = /^[0-9\-]{6,30}$/;
+const ALLOWED_WITHDRAWAL_BANK_NAMES = ["Banco Pichincha", "Banco Guayaquil"] as const;
 
 export const withdrawalStatusSchema = z.enum(["pending", "approved", "paid", "rejected"]);
 export const bankAccountTypeSchema = z.enum(["savings", "checking"]);
+export const withdrawalBankNameSchema = z.enum(ALLOWED_WITHDRAWAL_BANK_NAMES, {
+  invalid_type_error: "Selecciona un banco valido.",
+  required_error: "Selecciona un banco."
+});
 
 export const withdrawalAmountSchema = z.coerce
   .number({
     required_error: "El monto es obligatorio",
     invalid_type_error: "El monto debe ser numerico"
   })
-  .positive("El monto debe ser mayor a cero")
+  .min(10, "El retiro minimo es de $10.00")
   .max(10_000, "El monto excede el limite permitido");
 
 export const withdrawalRequestSchema = z.object({
-  bankName: z.string().trim().min(2, "El banco es obligatorio").max(100),
+  bankName: withdrawalBankNameSchema,
   accountType: bankAccountTypeSchema,
   accountNumber: z
     .string()
@@ -60,6 +65,6 @@ export const withdrawalMarkPaidSchema = z.object({
 });
 
 export const withdrawalFeeQuoteSchema = z.object({
-  bankName: z.string().trim().min(2).max(100),
+  bankName: withdrawalBankNameSchema,
   amountRequested: withdrawalAmountSchema
 });

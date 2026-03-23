@@ -11,6 +11,12 @@ const WINDOWS_WATCH_IGNORES = [
 export default function buildNextConfig(): NextConfig {
   return {
     reactStrictMode: true,
+    experimental: {
+      // Permite subir comprobantes por Server Actions (validamos hasta 5MB en el servicio).
+      serverActions: {
+        bodySizeLimit: "6mb"
+      }
+    },
     eslint: {
       // next lint esta deprecado en Next 15+; mantenemos build desacoplado del linter.
       ignoreDuringBuilds: true

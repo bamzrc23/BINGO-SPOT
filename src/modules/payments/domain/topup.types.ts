@@ -45,7 +45,7 @@ export type CreatePayphoneTopupInput = {
 export type CreateBankTransferTopupInput = {
   amount: number;
   clientReference?: string;
-  receiptPath: string;
+  receiptPath?: string | null;
   payload?: Record<string, unknown>;
 };
 

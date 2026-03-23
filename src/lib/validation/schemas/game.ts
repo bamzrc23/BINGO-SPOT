@@ -99,10 +99,10 @@ export const createGameRoundSchema = z.object({
 export const activateGameRoundSchema = z
   .object({
     gameRoundId: uuidSchema,
-    luckyBallProbability: z.coerce.number().min(0).max(1).default(0.12),
-    extraSpinsP1: z.coerce.number().positive().default(0.7),
-    extraSpinsP2: z.coerce.number().positive().default(0.22),
-    extraSpinsP3: z.coerce.number().positive().default(0.08)
+    luckyBallProbability: z.coerce.number().min(0).max(1).default(0.08),
+    extraSpinsP1: z.coerce.number().positive().default(0.78),
+    extraSpinsP2: z.coerce.number().positive().default(0.17),
+    extraSpinsP3: z.coerce.number().positive().default(0.05)
   })
   .superRefine((data, ctx) => {
     if (data.extraSpinsP3 >= data.extraSpinsP2 || data.extraSpinsP3 >= data.extraSpinsP1) {

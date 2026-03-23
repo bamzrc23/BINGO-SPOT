@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import { ROUTES } from "@/lib/constants/routes";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getWithdrawalsByUserId } from "@/modules/withdrawals/application/withdrawal.service";
-import { UserWithdrawalsTable, WithdrawalRequestForm } from "@/modules/withdrawals/ui";
+import {
+  UserWithdrawalsTable,
+  WithdrawalRequestForm,
+  WithdrawalRulesInfo
+} from "@/modules/withdrawals/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 
 export default async function WithdrawalsPage() {
@@ -28,7 +32,10 @@ export default async function WithdrawalsPage() {
 
   return (
     <div className="space-y-6">
-      <WithdrawalRequestForm />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <WithdrawalRequestForm />
+        <WithdrawalRulesInfo />
+      </div>
 
       {withdrawalsError ? (
         <Card className="rounded-[22px] border-4 border-black bg-neutral-100 text-black">

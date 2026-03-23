@@ -135,10 +135,10 @@ export async function createGameRound(client: AppSupabaseClient, input: CreateGa
 export async function activateGameRound(client: AppSupabaseClient, input: ActivateGameRoundInput) {
   const { data, error } = await client.rpc("activate_game_round", {
     p_game_round_id: input.gameRoundId,
-    p_lucky_ball_probability: input.luckyBallProbability ?? 0.12,
-    p_extra_spins_p1: input.extraSpinsP1 ?? 0.7,
-    p_extra_spins_p2: input.extraSpinsP2 ?? 0.22,
-    p_extra_spins_p3: input.extraSpinsP3 ?? 0.08,
+    p_lucky_ball_probability: input.luckyBallProbability ?? 0.08,
+    p_extra_spins_p1: input.extraSpinsP1 ?? 0.78,
+    p_extra_spins_p2: input.extraSpinsP2 ?? 0.17,
+    p_extra_spins_p3: input.extraSpinsP3 ?? 0.05,
     p_metadata: (input.metadata ?? {}) as Json
   });
 

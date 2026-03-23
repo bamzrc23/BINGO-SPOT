@@ -1,22 +1,20 @@
-"use server";
-
 import { revalidatePath } from "next/cache";
+import { NextResponse } from "next/server";
 
 import { ROUTES } from "@/lib/constants/routes";
-import { env } from "@/lib/env";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { env } from "@/lib/env";
 import { buildWhatsAppUrl } from "@/lib/utils";
-import {
-  createBankTransferTopupForUser,
-  reviewBankTransferTopupByAdmin
-} from "@/modules/payments/application/topups.service";
+import { createBankTransferTopupForUser } from "@/modules/payments/application/topups.service";
 import {
   AUTHORIZED_TOPUP_BANK_ACCOUNTS,
   TOPUP_ACCREDITATION_WINDOW_TEXT,
   TOPUP_ACCOUNT_HOLDER,
-  INITIAL_TOPUP_FORM_STATE,
   type TopupFormState
 } from "@/modules/payments/domain";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function buildErrorState(message: string, fieldErrors?: Record<string, string[] | undefined>) {
   return {
@@ -117,33 +115,28 @@ function buildTopupWhatsAppMessage(args: {
   return lines.join("\n");
 }
 
-export async function createPayphoneTopupAction(
-  _previousState: TopupFormState = INITIAL_TOPUP_FORM_STATE,
-  _formData: FormData
-): Promise<TopupFormState> {
-  return buildErrorState(
-    "PayPhone esta deshabilitado. Usa recarga por transferencia y continua por WhatsApp."
-  );
-}
-
-export async function createBankTransferTopupAction(
-  _previousState: TopupFormState = INITIAL_TOPUP_FORM_STATE,
-  formData: FormData
-): Promise<TopupFormState> {
+export async function POST(request: Request) {
   try {
+    const formData = await request.formData();
     const amountRaw = parseStringField(formData, "amount");
     const clientReference = parseStringField(formData, "clientReference");
     const reason = parseStringField(formData, "reason");
 
     if (!reason) {
-      return buildErrorState("Debes indicar el motivo de la recarga.", {
-        reason: ["El motivo es obligatorio."]
-      });
+      return NextResponse.json(
+        buildErrorState("Debes indicar el motivo de la recarga.", {
+          reason: ["El motivo es obligatorio."]
+        }),
+        { status: 400 }
+      );
     }
 
     if (!env.ADMIN_WHATSAPP_NUMBER) {
-      return buildErrorState(
-        "Falta configurar ADMIN_WHATSAPP_NUMBER en el servidor para enviar la solicitud por WhatsApp."
+      return NextResponse.json(
+        buildErrorState(
+          "Falta configurar ADMIN_WHATSAPP_NUMBER en el servidor para enviar la solicitud por WhatsApp."
+        ),
+        { status: 500 }
       );
     }
 
@@ -167,50 +160,20 @@ export async function createBankTransferTopupAction(
     revalidatePath(ROUTES.wallet);
     revalidatePath(ROUTES.adminTopups);
 
-    return buildSuccessState(
-      `Solicitud creada con codigo ${verificationCode}. Redirigiendo a WhatsApp para enviarla al administrador.`,
-      {
-        verificationCode,
-        redirectUrl
-      }
+    return NextResponse.json(
+      buildSuccessState(
+        `Solicitud creada con codigo ${verificationCode}. Redirigiendo a WhatsApp para enviarla al administrador.`,
+        {
+          verificationCode,
+          redirectUrl
+        }
+      ),
+      { status: 200 }
     );
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "No se pudo crear la solicitud de transferencia.";
-    return buildErrorState(message);
-  }
-}
 
-export async function reviewBankTransferTopupAction(
-  _previousState: TopupFormState = INITIAL_TOPUP_FORM_STATE,
-  formData: FormData
-): Promise<TopupFormState> {
-  try {
-    const topupId = parseStringField(formData, "topupId");
-    const decision = parseStringField(formData, "decision");
-    const rejectionReason = parseStringField(formData, "rejectionReason");
-
-    if (decision !== "approved" && decision !== "rejected") {
-      return buildErrorState("Decision invalida.");
-    }
-
-    await reviewBankTransferTopupByAdmin({
-      topupId,
-      decision,
-      rejectionReason: rejectionReason || undefined
-    });
-
-    revalidatePath(ROUTES.adminTopups);
-    revalidatePath(ROUTES.topups);
-    revalidatePath(ROUTES.wallet);
-
-    return buildSuccessState(
-      decision === "approved"
-        ? "Recarga aprobada y saldo acreditado."
-        : "Recarga rechazada correctamente."
-    );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudo revisar la recarga.";
-    return buildErrorState(message);
+    return NextResponse.json(buildErrorState(message), { status: 500 });
   }
 }

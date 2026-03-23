@@ -1,18 +1,17 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
-import { createBankTransferTopupAction } from "@/modules/payments/application";
-import { INITIAL_TOPUP_FORM_STATE } from "@/modules/payments/domain";
+import { INITIAL_TOPUP_FORM_STATE, type TopupFormState } from "@/modules/payments/domain";
 import { TopupFieldError } from "@/modules/payments/ui/topup-field-error";
 import { TopupFormFeedback } from "@/modules/payments/ui/topup-form-feedback";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from "@/components/ui";
 
+type TopupApiResponse = TopupFormState;
+
 export function BankTransferTopupForm() {
-  const [state, formAction, isPending] = useActionState(
-    createBankTransferTopupAction,
-    INITIAL_TOPUP_FORM_STATE
-  );
+  const [state, setState] = useState<TopupFormState>(INITIAL_TOPUP_FORM_STATE);
+  const [isPending, setIsPending] = useState(false);
   const redirectedUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -28,17 +27,70 @@ export function BankTransferTopupForm() {
     window.location.assign(state.redirectUrl);
   }, [state.redirectUrl, state.status]);
 
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const amountRaw = formData.get("amount");
+    const amount = typeof amountRaw === "string" ? Number(amountRaw) : NaN;
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setState({
+        status: "error",
+        message: "Ingresa un monto valido mayor a 0.",
+        fieldErrors: {
+          amount: ["El monto debe ser mayor a 0."]
+        }
+      });
+      return;
+    }
+
+    setIsPending(true);
+    setState(INITIAL_TOPUP_FORM_STATE);
+
+    try {
+      const response = await fetch("/api/topups/bank-transfer", {
+        method: "POST",
+        body: formData
+      });
+      const payload = (await response.json()) as TopupApiResponse;
+
+      if (!response.ok) {
+        setState({
+          status: "error",
+          message: payload.message ?? "No se pudo crear la solicitud de transferencia.",
+          fieldErrors: payload.fieldErrors
+        });
+        return;
+      }
+
+      setState(payload);
+
+      if (payload.status === "success") {
+        form.reset();
+      }
+    } catch {
+      setState({
+        status: "error",
+        message:
+          "No se pudo enviar la solicitud. Revisa tu conexion e intenta nuevamente."
+      });
+    } finally {
+      setIsPending(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Recargar por transferencia externa</CardTitle>
         <CardDescription>
-          Completa la solicitud, sube el comprobante y luego te redirigimos a WhatsApp para enviar
-          el codigo de validacion al administrador.
+          Completa la solicitud y te redirigimos a WhatsApp para enviar el codigo de validacion al
+          administrador junto con tu comprobante.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="space-y-4" encType="multipart/form-data">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div className="space-y-1.5">
             <label htmlFor="transfer-amount" className="text-sm font-medium">
               Monto (USD)
@@ -56,6 +108,20 @@ export function BankTransferTopupForm() {
           </div>
 
           <div className="space-y-1.5">
+            <label htmlFor="transfer-reason" className="text-sm font-medium">
+              Motivo
+            </label>
+            <Input
+              id="transfer-reason"
+              name="reason"
+              maxLength={300}
+              placeholder="Ejemplo: Recarga para partida nocturna"
+              required
+            />
+            <TopupFieldError errors={state.fieldErrors?.reason} />
+          </div>
+
+          <div className="space-y-1.5">
             <label htmlFor="transfer-reference" className="text-sm font-medium">
               Referencia bancaria (opcional)
             </label>
@@ -66,20 +132,6 @@ export function BankTransferTopupForm() {
               placeholder="Numero de transferencia"
             />
             <TopupFieldError errors={state.fieldErrors?.clientReference} />
-          </div>
-
-          <div className="space-y-1.5">
-            <label htmlFor="transfer-receipt" className="text-sm font-medium">
-              Comprobante (JPG, PNG o PDF)
-            </label>
-            <Input
-              id="transfer-receipt"
-              name="receiptFile"
-              type="file"
-              accept="image/jpeg,image/png,application/pdf"
-              required
-            />
-            <TopupFieldError errors={state.fieldErrors?.receiptFile} />
           </div>
 
           <TopupFormFeedback state={state} />

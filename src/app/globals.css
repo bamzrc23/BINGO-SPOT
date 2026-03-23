@@ -20,17 +20,15 @@
 }
 
 body {
-  @apply min-h-screen bg-background text-foreground antialiased;
+  @apply min-h-screen text-foreground antialiased;
   font-family: "Manrope", "Segoe UI", "Helvetica Neue", sans-serif;
+  background-color: #101214;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.18)), url("/images/bingo-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
 }
 
 a {
   @apply transition-colors;
-}
-
-body {
-  background-image: url('/images/bingo-bg.jpg');
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
 }

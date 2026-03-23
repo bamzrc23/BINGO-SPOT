@@ -107,11 +107,22 @@ function assertRoundDetailConsistency(detail: GameRoundDetail) {
       throw new Error("Se detecto una linea pagada con numeros no sorteados.");
     }
 
-    const expectedMultiplier = line.lineNumbers.reduce((acc, value) => {
-      const multiplier = multiplierByValue.get(value) ?? 1;
-      return acc * multiplier;
-    }, 1);
-    if (line.appliedMultiplier !== expectedMultiplier) {
+    let expectedAdditiveMultiplier = 0;
+    let expectedCompoundMultiplier = 1;
+    line.lineNumbers.forEach((value) => {
+      const multiplier = multiplierByValue.get(value);
+      if (multiplier) {
+        expectedAdditiveMultiplier += multiplier;
+        expectedCompoundMultiplier *= multiplier;
+      }
+    });
+    if (expectedAdditiveMultiplier <= 0) {
+      expectedAdditiveMultiplier = 1;
+      expectedCompoundMultiplier = 1;
+    }
+    const matchesAdditive = line.appliedMultiplier === expectedAdditiveMultiplier;
+    const matchesLegacyCompound = line.appliedMultiplier === expectedCompoundMultiplier;
+    if (!matchesAdditive && !matchesLegacyCompound) {
       throw new Error("Se detecto una linea pagada con multiplicador inconsistente.");
     }
 

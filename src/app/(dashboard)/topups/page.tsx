@@ -5,7 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getTopupsByUserId } from "@/modules/payments/application/topups.service";
 import {
   BankTransferTopupForm,
-  TopupsRealtimeSync,
+  TopupSecurityInfo,
   UserTopupsTable
 } from "@/modules/payments/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
@@ -32,10 +32,9 @@ export default async function TopupsPage() {
 
   return (
     <div className="space-y-6">
-      <TopupsRealtimeSync userId={user.id} />
-
-      <div className="grid gap-4">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <BankTransferTopupForm />
+        <TopupSecurityInfo />
       </div>
 
       {topupError ? (

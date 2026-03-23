@@ -49,6 +49,26 @@ function parseStringField(formData: FormData, key: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function isDuplicateEmailErrorMessage(message?: string): boolean {
+  if (!message) {
+    return false;
+  }
+
+  const normalized = message.toLowerCase();
+  return normalized.includes("already registered") || normalized.includes("already exists");
+}
+
+function isDuplicateEmailSignUpResponse(data: {
+  user?: { identities?: unknown[] | null } | null;
+  session?: unknown;
+} | null | undefined): boolean {
+  if (!data?.user || data.session) {
+    return false;
+  }
+
+  return Array.isArray(data.user.identities) && data.user.identities.length === 0;
+}
+
 export async function registerAction(
   _previousState: AuthFormState = INITIAL_AUTH_FORM_STATE,
   formData: FormData
@@ -70,11 +90,13 @@ export async function registerAction(
 
   const supabase = await createServerSupabaseClient();
   const normalizedNickname = sanitizeNickname(parsed.data.nickname);
+  const normalizedEmail = parsed.data.email.trim().toLowerCase();
 
   const { data: existingNickname } = await supabase
     .from("profiles")
     .select("id")
     .ilike("nickname", normalizedNickname)
+    .limit(1)
     .maybeSingle();
 
   if (existingNickname) {
@@ -83,17 +105,43 @@ export async function registerAction(
     });
   }
 
+  const { data: existingEmail } = await supabase
+    .from("profiles")
+    .select("id")
+    .ilike("email", normalizedEmail)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingEmail) {
+    return buildErrorState("El correo ya esta registrado.", {
+      email: ["Usa otro correo o inicia sesion."]
+    });
+  }
+
   const callbackUrl = `${siteConfig.url}/auth/callback?next=${encodeURIComponent(ROUTES.dashboard)}`;
 
   const { data, error } = await signUpWithPassword(supabase, {
     ...parsed.data,
     nickname: normalizedNickname,
+    email: normalizedEmail,
     phone: parsed.data.phone ?? "",
     emailRedirectTo: callbackUrl
   });
 
   if (error) {
+    if (isDuplicateEmailErrorMessage(error.message)) {
+      return buildErrorState("El correo ya esta registrado.", {
+        email: ["Usa otro correo o inicia sesion."]
+      });
+    }
+
     return buildErrorState(error.message);
+  }
+
+  if (isDuplicateEmailSignUpResponse(data)) {
+    return buildErrorState("El correo ya esta registrado.", {
+      email: ["Usa otro correo o inicia sesion."]
+    });
   }
 
   if (data.user) {

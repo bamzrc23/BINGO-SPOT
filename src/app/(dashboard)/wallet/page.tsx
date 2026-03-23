@@ -50,7 +50,7 @@ export default async function WalletPage() {
           href={ROUTES.withdrawals}
           className="inline-flex h-11 items-center justify-center rounded-xl border-2 border-black bg-white px-4 text-sm font-bold text-black transition hover:bg-neutral-100"
         >
-          RETIRARs
+          RETIRAR
         </Link>
       </div>
 

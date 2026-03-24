@@ -221,12 +221,15 @@ function getRevealedDrawCount(detail: GameRoundDetail | null, nowMs: number): nu
     return 0;
   }
 
-  if (detail.round.status === "finished") {
-    return detail.draws.length;
+  const isRoundPlaybackState =
+    detail.round.status === "active" || detail.round.status === "finished";
+
+  if (!isRoundPlaybackState) {
+    return 0;
   }
 
-  if (detail.round.status !== "active" || !detail.round.activatedAt) {
-    return 0;
+  if (!detail.round.activatedAt) {
+    return detail.round.status === "finished" ? detail.draws.length : 0;
   }
 
   const activatedAtMs = new Date(detail.round.activatedAt).getTime();
@@ -932,8 +935,8 @@ export function GameRoomLive({
     const elapsedMs = Math.max(0, nowMs - activatedAtMs);
     const revealDurationMs = 5000;
     const revealStepMs = revealDurationMs / 5;
-    const revealCount = Math.floor(elapsedMs / revealStepMs) + 1;
-    return Math.max(1, Math.min(5, revealCount));
+    const revealCount = Math.floor(elapsedMs / revealStepMs);
+    return Math.max(0, Math.min(5, revealCount));
   }, [isPrestartAnimation, nowMs, roundDetail?.round.activatedAt]);
   const cleanupEndsAt =
     roundDetail?.round.finishedAt && roundDetail.round.status === "finished"
@@ -1154,6 +1157,11 @@ export function GameRoomLive({
   const isAllRoundNumbersRevealed = Boolean(
     roundDetail && roundDetail.draws.length > 0 && revealedDrawCount >= roundDetail.draws.length
   );
+  const isPlaybackActive = Boolean(
+    roundDetail &&
+      ((phase === "active" && roundDetail.round.status === "active") ||
+        (phase === "finished" && !isAllRoundNumbersRevealed))
+  );
 
   useEffect(() => {
     if (!currentDraw) {
@@ -1173,7 +1181,7 @@ export function GameRoomLive({
   }, [currentDraw?.id, currentDraw?.numberValue]);
 
   useEffect(() => {
-    if (phase !== "active" || isCleanupPhase || isPrestartAnimation || isAllRoundNumbersRevealed) {
+    if (!isPlaybackActive || isCleanupPhase || isPrestartAnimation || isAllRoundNumbersRevealed) {
       if (!currentDraw) {
         setRollingDrawNumber(null);
       }
@@ -1195,7 +1203,7 @@ export function GameRoomLive({
       window.clearInterval(interval);
     };
   }, [
-    phase,
+    isPlaybackActive,
     isCleanupPhase,
     isPrestartAnimation,
     isAllRoundNumbersRevealed,
@@ -1205,7 +1213,7 @@ export function GameRoomLive({
   ]);
 
   const displayBallNumber = useMemo(() => {
-    if (phase === "active") {
+    if (isPlaybackActive) {
       if (isRollingLocked && currentDraw) {
         return currentDraw.numberValue;
       }
@@ -1220,7 +1228,7 @@ export function GameRoomLive({
     }
 
     return 0;
-  }, [phase, isRollingLocked, currentDraw, rollingDrawNumber]);
+  }, [isPlaybackActive, isRollingLocked, currentDraw, rollingDrawNumber]);
 
   const luckyMarkerOrder = roundDetail?.round.luckyBallTriggered
     ? roundDetail.round.luckyBallTriggerOrder
@@ -1228,14 +1236,14 @@ export function GameRoomLive({
   const isLuckyMarkerCurrentDraw = Boolean(
     currentDraw && luckyMarkerOrder && currentDraw.drawOrder === luckyMarkerOrder
   );
-  const isCurrentBallSettled = Boolean(currentDraw) && (phase !== "active" || isRollingLocked);
+  const isCurrentBallSettled = Boolean(currentDraw) && (!isPlaybackActive || isRollingLocked);
   const displayBallLabel = String(displayBallNumber).padStart(2, "0");
   const calledNumbersCount = revealedDraws.length;
   const calledNumbersTarget =
     roundDetail?.round.totalDrawCount ?? roundDetail?.round.baseDrawCount ?? 9;
 
   useEffect(() => {
-    if (!currentDraw || phase !== "active" || !isCurrentBallSettled) {
+    if (!currentDraw || !isPlaybackActive || !isCurrentBallSettled) {
       return;
     }
 
@@ -1257,7 +1265,7 @@ export function GameRoomLive({
     speakText(`Numero ${currentDraw.numberValue}.`);
   }, [
     currentDraw,
-    phase,
+    isPlaybackActive,
     isCurrentBallSettled,
     luckyMarkerOrder,
     roundDetail?.round.luckyBallExtraSpins,

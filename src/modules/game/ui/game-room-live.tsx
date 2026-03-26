@@ -301,6 +301,9 @@ export function GameRoomLive({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [, setIsRealtimeConnected] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [revealedDrawCount, setRevealedDrawCount] = useState(() =>
+    getRevealedDrawCount(initialRound, Date.now())
+  );
   const [lineFeedbackMessage, setLineFeedbackMessage] = useState<string | null>(null);
   const [prizeFeedbackMessage, setPrizeFeedbackMessage] = useState<string | null>(null);
   const [highlightedBoardId, setHighlightedBoardId] = useState<string | null>(null);
@@ -321,6 +324,7 @@ export function GameRoomLive({
     new Set(initialRound?.lineWins.map((line) => line.id) ?? [])
   );
   const currentRoundIdRef = useRef<string | null>(initialRound?.round.id ?? null);
+  const revealedRoundIdRef = useRef<string | null>(initialRound?.round.id ?? null);
   const lastSpokenDrawIdRef = useRef<string | null>(null);
   const announcedFinishedRoundIdRef = useRef<string | null>(null);
   const announcedPrestartRoundIdRef = useRef<string | null>(null);
@@ -679,19 +683,6 @@ export function GameRoomLive({
           });
 
           setUserPrizeLines((previous) => dedupeLineWinsDesc([nextLine, ...previous]));
-          setWinCelebration((previous) => {
-            if (previous && previous.roundId === nextLine.gameRoundId) {
-              return {
-                roundId: previous.roundId,
-                amount: Math.round((previous.amount + nextLine.prizeAmount) * 100) / 100
-              };
-            }
-
-            return {
-              roundId: nextLine.gameRoundId,
-              amount: nextLine.prizeAmount
-            };
-          });
 
           void refreshWallet();
           void refreshPrizeLines();
@@ -838,6 +829,12 @@ export function GameRoomLive({
       return;
     }
 
+    const hasRevealedAllRoundNumbers =
+      roundDetail.draws.length > 0 && revealedDrawCount >= roundDetail.draws.length;
+    if (!hasRevealedAllRoundNumbers) {
+      return;
+    }
+
     const knownIds = knownPaidLineIdsRef.current;
     const newPaidLines = roundDetail.lineWins.filter((line) => !knownIds.has(line.id));
 
@@ -847,15 +844,23 @@ export function GameRoomLive({
         return;
       }
 
+      const totalPrize = Math.round(
+        newPaidLines.reduce((sum, line) => sum + line.prizeAmount, 0) * 100
+      ) / 100;
+
       setPrizeFeedbackMessage(
-        `Premio acreditado: ${LINE_TYPE_LABELS[newest.lineType]} por ${formatCurrency(
-          newest.prizeAmount
-        )}.`
+        `Premio total acreditado: ${formatCurrency(totalPrize)} (${newPaidLines.length} linea${
+          newPaidLines.length === 1 ? "" : "s"
+        }).`
       );
       setHighlightedBoardId(newest.boardId);
+      setWinCelebration({
+        roundId: roundDetail.round.id,
+        amount: totalPrize
+      });
       newPaidLines.forEach((line) => knownIds.add(line.id));
     }
-  }, [roundDetail]);
+  }, [revealedDrawCount, roundDetail]);
 
   useEffect(() => {
     if (!lineFeedbackMessage) {
@@ -914,7 +919,7 @@ export function GameRoomLive({
   }, [winCelebration]);
 
   const phase = getPhase(roundDetail, isBootstrapping);
-  const revealedDrawCount = getRevealedDrawCount(roundDetail, nowMs);
+  const targetRevealedDrawCount = getRevealedDrawCount(roundDetail, nowMs);
   const prestartRevealAt =
     roundDetail?.round.activatedAt && roundDetail.round.status === "active"
       ? new Date(
@@ -946,9 +951,7 @@ export function GameRoomLive({
         ).toISOString()
       : null;
   const cleanupRemainingSeconds = toCountdownSeconds(cleanupEndsAt, nowMs);
-  const isCleanupPhase = Boolean(
-    roundDetail?.round.status === "finished" && cleanupRemainingSeconds > 0
-  );
+  const isRoundFinished = roundDetail?.round.status === "finished";
   const scheduledStartRemainingSeconds =
     roundDetail?.round.status === "scheduled"
       ? toCountdownSeconds(roundDetail.round.scheduledAt, nowMs)
@@ -1157,11 +1160,47 @@ export function GameRoomLive({
   const isAllRoundNumbersRevealed = Boolean(
     roundDetail && roundDetail.draws.length > 0 && revealedDrawCount >= roundDetail.draws.length
   );
+  const isCleanupPhase = Boolean(
+    isRoundFinished && isAllRoundNumbersRevealed && cleanupRemainingSeconds > 0
+  );
   const isPlaybackActive = Boolean(
     roundDetail &&
       ((phase === "active" && roundDetail.round.status === "active") ||
         (phase === "finished" && !isAllRoundNumbersRevealed))
   );
+
+  useEffect(() => {
+    const roundId = roundDetail?.round.id ?? null;
+    if (revealedRoundIdRef.current !== roundId) {
+      revealedRoundIdRef.current = roundId;
+      setRevealedDrawCount(targetRevealedDrawCount);
+      return;
+    }
+
+    if (targetRevealedDrawCount === revealedDrawCount) {
+      return;
+    }
+
+    if (targetRevealedDrawCount < revealedDrawCount) {
+      setRevealedDrawCount(targetRevealedDrawCount);
+      return;
+    }
+
+    const delta = targetRevealedDrawCount - revealedDrawCount;
+    if (delta === 1 && roundDetail?.round.status !== "finished") {
+      setRevealedDrawCount(targetRevealedDrawCount);
+      return;
+    }
+
+    const catchupDelayMs = roundDetail?.round.status === "finished" ? 1200 : 900;
+    const timer = window.setTimeout(() => {
+      setRevealedDrawCount((previous) => Math.min(targetRevealedDrawCount, previous + 1));
+    }, catchupDelayMs);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [revealedDrawCount, roundDetail?.round.id, roundDetail?.round.status, targetRevealedDrawCount]);
 
   useEffect(() => {
     if (!currentDraw) {
@@ -1273,7 +1312,7 @@ export function GameRoomLive({
   ]);
 
   useEffect(() => {
-    if (!roundDetail || roundDetail.round.status !== "finished") {
+    if (!roundDetail || roundDetail.round.status !== "finished" || !isAllRoundNumbersRevealed) {
       return;
     }
 
@@ -1285,7 +1324,7 @@ export function GameRoomLive({
     speakText(
       `Partida terminada. Iniciamos en ${GAME_ROOM_ROUND_COOLDOWN_SECONDS} segundos la siguiente. Compra tus tablas ahora.`
     );
-  }, [roundDetail, speakText]);
+  }, [isAllRoundNumbersRevealed, roundDetail, speakText]);
 
   useEffect(() => {
     if (!roundDetail || !isPrestartAnimation || roundDetail.round.status !== "active") {
@@ -1361,13 +1400,13 @@ export function GameRoomLive({
     return Array.from(unique).sort((a, b) => a - b).slice(0, 12);
   }, [missingLineCards]);
 
-  const hasActiveRound = roundDetail?.round.status === "active";
+  const hasActiveRound = isPlaybackActive;
   const isPurchaseWindowClosed = Boolean(
     liveUpcomingGameScheduledAt && new Date(liveUpcomingGameScheduledAt).getTime() <= nowMs
   );
   const effectivePurchaseBlocked = hasActiveRound || !liveUpcomingGameId || isPurchaseWindowClosed;
   const effectivePurchaseBlockedReason = hasActiveRound
-    ? "Partida en curso, espera la siguiente ronda."
+    ? "Partida en curso o cerrando resultados, espera la siguiente ronda."
     : !liveUpcomingGameId
       ? "Aun no existe una proxima partida programada para asignar tus tablas."
       : isPurchaseWindowClosed

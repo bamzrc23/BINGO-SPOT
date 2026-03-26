@@ -4,6 +4,12 @@ export type AuthorizedBankAccount = {
   accountNumber: string;
 };
 
+export type TopupAccountHolder = {
+  fullName: string;
+  documentLabel: string;
+  documentNumber: string;
+};
+
 export const AUTHORIZED_TOPUP_BANK_ACCOUNTS: AuthorizedBankAccount[] = [
   {
     bankName: "Banco Pichincha",
@@ -17,7 +23,7 @@ export const AUTHORIZED_TOPUP_BANK_ACCOUNTS: AuthorizedBankAccount[] = [
   }
 ];
 
-export const TOPUP_ACCOUNT_HOLDER = {
+export const TOPUP_ACCOUNT_HOLDER: TopupAccountHolder = {
   fullName: "Bryan Matailo",
   documentLabel: "DNI",
   documentNumber: "0750183469"

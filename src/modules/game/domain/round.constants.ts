@@ -1,6 +1,6 @@
 import type { GameRoundStatus } from "@/types/domain";
 
-export const GAME_ROUND_DEFAULT_LUCKY_BALL_PROBABILITY = 0.08;
+export const GAME_ROUND_DEFAULT_LUCKY_BALL_PROBABILITY = 0.15;
 export const GAME_ROUND_DEFAULT_EXTRA_SPINS_P1 = 0.78;
 export const GAME_ROUND_DEFAULT_EXTRA_SPINS_P2 = 0.17;
 export const GAME_ROUND_DEFAULT_EXTRA_SPINS_P3 = 0.05;

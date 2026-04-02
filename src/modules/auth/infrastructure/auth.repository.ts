@@ -34,9 +34,7 @@ export async function signUpWithPassword(client: AppSupabaseClient, input: SignU
         first_name: input.firstName,
         last_name: input.lastName,
         nickname: input.nickname,
-        phone: input.phone,
-        role: "user",
-        account_status: "active"
+        phone: input.phone
       }
     }
   });

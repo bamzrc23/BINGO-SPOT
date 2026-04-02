@@ -16,18 +16,6 @@ function readString(value: unknown, fallback = ""): string {
   return value.trim();
 }
 
-function resolveRole(value: unknown): ProfileRow["role"] {
-  return value === "admin" ? "admin" : "user";
-}
-
-function resolveAccountStatus(value: unknown): ProfileRow["account_status"] {
-  if (value === "pending" || value === "suspended") {
-    return value;
-  }
-
-  return "active";
-}
-
 function fallbackNickname(user: User): string {
   const base = user.email?.split("@")[0] ?? `user_${user.id.slice(0, 8)}`;
   return sanitizeNickname(base.replace(/[^a-zA-Z0-9_]/g, "_"));
@@ -66,8 +54,8 @@ export async function ensureProfileForUser(
     nickname,
     email: user.email ?? `${fallbackNickname(user)}@invalid.local`,
     phone,
-    role: resolveRole(metadata.role),
-    account_status: resolveAccountStatus(metadata.account_status)
+    role: "user",
+    account_status: "active"
   };
 
   const upsertResult = await client.from("profiles").upsert(insertPayload as never, {

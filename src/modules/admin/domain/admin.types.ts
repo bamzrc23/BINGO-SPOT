@@ -9,7 +9,18 @@ export type AdminDashboardMetrics = {
   withdrawalsPending: number;
   activeRoundId: string | null;
   boardsSoldTotal: number;
+  boardsRevenueTotal: number;
   prizesPaidTotal: number;
+  netGamingResultTotal: number;
+  boardSalesBreakdown: AdminBoardSalesBreakdown[];
+};
+
+export type AdminBoardSalesBreakdown = {
+  stakeTier: string;
+  unitPrice: number;
+  purchasesCount: number;
+  boardsSold: number;
+  salesTotal: number;
 };
 
 export type AdminUserWithWallet = {

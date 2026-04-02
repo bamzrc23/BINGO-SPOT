@@ -18,11 +18,19 @@ function unauthorizedResponse() {
 
 export async function POST(request: Request) {
   try {
-    if (env.PAYPHONE_WEBHOOK_TOKEN) {
-      const incomingToken = request.headers.get("x-payphone-token");
-      if (!incomingToken || incomingToken !== env.PAYPHONE_WEBHOOK_TOKEN) {
-        return unauthorizedResponse();
-      }
+    if (!env.PAYPHONE_WEBHOOK_TOKEN) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Webhook de PayPhone no configurado."
+        },
+        { status: 503 }
+      );
+    }
+
+    const incomingToken = request.headers.get("x-payphone-token");
+    if (!incomingToken || incomingToken !== env.PAYPHONE_WEBHOOK_TOKEN) {
+      return unauthorizedResponse();
     }
 
     const body = (await request.json()) as PayphoneWebhookBody;

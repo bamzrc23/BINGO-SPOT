@@ -5,13 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
 import {
-  GAME_DEFAULT_BASE_LINE_PRIZE,
   GAME_ROOM_AUTOMATION_TICK_MS,
   GAME_ROOM_DRAW_INTERVAL_SECONDS,
-  GAME_ROUND_DEFAULT_EXTRA_SPINS_P1,
-  GAME_ROUND_DEFAULT_EXTRA_SPINS_P2,
-  GAME_ROUND_DEFAULT_EXTRA_SPINS_P3,
-  GAME_ROUND_DEFAULT_LUCKY_BALL_PROBABILITY,
   GAME_ROOM_POLL_FALLBACK_MS,
   GAME_ROOM_PRESTART_ANIMATION_SECONDS,
   GAME_ROOM_ROUND_COOLDOWN_SECONDS,
@@ -598,21 +593,17 @@ export function GameRoomLive({
   }, [supabase]);
 
   const runAutomationTick = useCallback(async () => {
-    const { error } = await supabase.rpc("run_game_round_automation", {
-      p_draw_interval_seconds: GAME_ROOM_DRAW_INTERVAL_SECONDS,
-      p_prestart_animation_seconds: GAME_ROOM_PRESTART_ANIMATION_SECONDS,
-      p_round_cooldown_seconds: GAME_ROOM_ROUND_COOLDOWN_SECONDS,
-      p_base_prize: GAME_DEFAULT_BASE_LINE_PRIZE,
-      p_lucky_ball_probability: GAME_ROUND_DEFAULT_LUCKY_BALL_PROBABILITY,
-      p_extra_spins_p1: GAME_ROUND_DEFAULT_EXTRA_SPINS_P1,
-      p_extra_spins_p2: GAME_ROUND_DEFAULT_EXTRA_SPINS_P2,
-      p_extra_spins_p3: GAME_ROUND_DEFAULT_EXTRA_SPINS_P3
+    const response = await fetch("/api/game/automation/tick", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      }
     });
 
-    if (error) {
+    if (!response.ok) {
       throw new Error("No se pudo ejecutar el ciclo automatico de partidas.");
     }
-  }, [supabase]);
+  }, []);
 
   const refreshRound = useCallback(async () => {
     try {

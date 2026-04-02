@@ -824,7 +824,10 @@ export type Database = {
           withdrawals_pending: number;
           active_round_id: string | null;
           boards_sold_total: number;
+          boards_revenue_total: number;
           prizes_paid_total: number;
+          net_gaming_result_total: number;
+          board_sales_breakdown: Json;
         }[];
       };
       admin_upsert_game_setting: {

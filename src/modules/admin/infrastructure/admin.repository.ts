@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/types/database";
 import type {
   AdminAuditLogRow,
+  AdminBoardSalesBreakdown,
   AdminAuditQueryInput,
   AdminDashboardMetrics,
   AdminSetUserStatusInput,
@@ -38,6 +39,42 @@ function mapGameSettingRow(row: GameSettingDbRow): GameSettingRow {
   };
 }
 
+function toNumber(value: unknown): number {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+
+  return 0;
+}
+
+function mapBoardSalesBreakdown(value: Json | null | undefined): AdminBoardSalesBreakdown[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const row = item as Record<string, unknown>;
+      return {
+        stakeTier: typeof row.stake_tier === "string" ? row.stake_tier : "unknown",
+        unitPrice: toNumber(row.unit_price),
+        purchasesCount: Math.max(0, Math.trunc(toNumber(row.purchases_count))),
+        boardsSold: Math.max(0, Math.trunc(toNumber(row.boards_sold))),
+        salesTotal: toNumber(row.sales_total)
+      } satisfies AdminBoardSalesBreakdown;
+    })
+    .filter((item): item is AdminBoardSalesBreakdown => item !== null);
+}
+
 export async function getAdminDashboardMetrics(client: AppSupabaseClient) {
   const { data, error } = await client.rpc("admin_get_dashboard_metrics");
   if (error) {
@@ -58,7 +95,10 @@ export async function getAdminDashboardMetrics(client: AppSupabaseClient) {
       withdrawalsPending: row.withdrawals_pending,
       activeRoundId: row.active_round_id,
       boardsSoldTotal: row.boards_sold_total,
-      prizesPaidTotal: Number(row.prizes_paid_total)
+      boardsRevenueTotal: Number(row.boards_revenue_total),
+      prizesPaidTotal: Number(row.prizes_paid_total),
+      netGamingResultTotal: Number(row.net_gaming_result_total),
+      boardSalesBreakdown: mapBoardSalesBreakdown(row.board_sales_breakdown)
     } satisfies AdminDashboardMetrics,
     error: null
   };

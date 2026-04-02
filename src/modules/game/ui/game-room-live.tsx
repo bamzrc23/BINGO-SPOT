@@ -37,6 +37,19 @@ import type { BingoLineType } from "@/types/domain";
 import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 
 const ALL_LINE_TYPES: BingoLineType[] = ["row_1", "row_2", "row_3", "col_1", "col_2", "col_3"];
+type MusicVolumeLevel = "low" | "medium" | "high";
+
+const MUSIC_VOLUME_VALUES: Record<MusicVolumeLevel, number> = {
+  low: 0.2,
+  medium: 0.35,
+  high: 0.5
+};
+
+const MUSIC_VOLUME_LABELS: Record<MusicVolumeLevel, string> = {
+  low: "Bajo",
+  medium: "Medio",
+  high: "Alto"
+};
 
 type GameRoomLiveProps = {
   userId: string;
@@ -304,6 +317,8 @@ export function GameRoomLive({
   const [revealedDrawCount, setRevealedDrawCount] = useState(() =>
     getRevealedDrawCount(initialRound, Date.now())
   );
+  const [isMusicEnabled, setIsMusicEnabled] = useState(false);
+  const [musicVolumeLevel, setMusicVolumeLevel] = useState<MusicVolumeLevel>("medium");
   const [lineFeedbackMessage, setLineFeedbackMessage] = useState<string | null>(null);
   const [prizeFeedbackMessage, setPrizeFeedbackMessage] = useState<string | null>(null);
   const [highlightedBoardId, setHighlightedBoardId] = useState<string | null>(null);
@@ -328,6 +343,7 @@ export function GameRoomLive({
   const lastSpokenDrawIdRef = useRef<string | null>(null);
   const announcedFinishedRoundIdRef = useRef<string | null>(null);
   const announcedPrestartRoundIdRef = useRef<string | null>(null);
+  const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
 
   const speakText = useCallback((text: string) => {
     if (typeof window === "undefined" || typeof window.speechSynthesis === "undefined") {
@@ -352,6 +368,49 @@ export function GameRoomLive({
     synthesis.cancel();
     synthesis.speak(utterance);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const savedValue = window.localStorage.getItem("bingo:bg-music");
+    if (savedValue === "on") {
+      setIsMusicEnabled(true);
+    }
+
+    const savedVolume = window.localStorage.getItem("bingo:bg-music-volume");
+    if (savedVolume === "low" || savedVolume === "medium" || savedVolume === "high") {
+      setMusicVolumeLevel(savedVolume);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem("bingo:bg-music", isMusicEnabled ? "on" : "off");
+    window.localStorage.setItem("bingo:bg-music-volume", musicVolumeLevel);
+    const audio = backgroundMusicRef.current;
+    if (!audio) {
+      return;
+    }
+
+    audio.volume = MUSIC_VOLUME_VALUES[musicVolumeLevel];
+    if (isMusicEnabled) {
+      const playPromise = audio.play();
+      if (playPromise) {
+        playPromise.catch(() => {
+          // En algunos navegadores, el autoplay requiere gesto del usuario.
+        });
+      }
+      return;
+    }
+
+    audio.pause();
+    audio.currentTime = 0;
+  }, [isMusicEnabled, musicVolumeLevel]);
 
   const fetchCurrentRoundDetail = useCallback(async (): Promise<GameRoundDetail | null> => {
     const { data: activeRows, error: activeError } = await supabase
@@ -1415,6 +1474,10 @@ export function GameRoomLive({
 
   return (
     <div className="min-w-0 space-y-6 overflow-x-hidden text-[15px]">
+      <audio ref={backgroundMusicRef} loop preload="auto" className="hidden" aria-hidden="true">
+        <source src="/audio/bingo-room.mp3" type="audio/mpeg" />
+      </audio>
+
       {lineFeedbackMessage || prizeFeedbackMessage ? (
         <div className="fixed inset-x-3 top-20 z-50 sm:hidden">
           <div className="rounded-lg border-2 border-black bg-emerald-100 px-3 py-2 shadow-soft">
@@ -1458,9 +1521,46 @@ export function GameRoomLive({
                 Sala {roundDetail ? `#${roundDetail.round.id.slice(0, 8)}` : "--"}
               </span>
             </div>
-            <div className="rounded-lg border-2 border-black bg-white px-3 py-1 text-right">
-              <p className="text-[10px] font-semibold uppercase text-black/60">Saldo</p>
-              <p className="text-base font-black">{wallet ? formatCurrency(wallet.balance) : "Sin datos"}</p>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsMusicEnabled((value) => !value)}
+                className={cn(
+                  "rounded-lg border-2 px-3 py-1 text-[11px] font-black uppercase transition",
+                  isMusicEnabled
+                    ? "border-emerald-800 bg-emerald-200 text-emerald-900"
+                    : "border-black bg-white text-black"
+                )}
+              >
+                Musica {isMusicEnabled ? "ON" : "OFF"}
+              </button>
+              <div
+                className={cn(
+                  "inline-flex overflow-hidden rounded-lg border-2 border-black",
+                  isMusicEnabled ? "bg-white" : "bg-neutral-200"
+                )}
+              >
+                {(["low", "medium", "high"] as const).map((level) => (
+                  <button
+                    key={`music-volume-${level}`}
+                    type="button"
+                    onClick={() => setMusicVolumeLevel(level)}
+                    className={cn(
+                      "border-r-2 border-black px-2.5 py-1 text-[10px] font-black uppercase transition last:border-r-0",
+                      musicVolumeLevel === level
+                        ? "bg-black text-white"
+                        : "bg-white text-black hover:bg-neutral-100",
+                      !isMusicEnabled ? "opacity-60" : null
+                    )}
+                  >
+                    {MUSIC_VOLUME_LABELS[level]}
+                  </button>
+                ))}
+              </div>
+              <div className="rounded-lg border-2 border-black bg-white px-3 py-1 text-right">
+                <p className="text-[10px] font-semibold uppercase text-black/60">Saldo</p>
+                <p className="text-base font-black">{wallet ? formatCurrency(wallet.balance) : "Sin datos"}</p>
+              </div>
             </div>
           </div>
         </CardHeader>

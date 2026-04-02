@@ -24,9 +24,9 @@ export const AUTHORIZED_TOPUP_BANK_ACCOUNTS: AuthorizedBankAccount[] = [
 ];
 
 export const TOPUP_ACCOUNT_HOLDER: TopupAccountHolder = {
-  fullName: "Bryan Matailo",
-  documentLabel: "DNI",
-  documentNumber: "0750183469"
+  fullName: "",
+  documentLabel: "",
+  documentNumber: ""
 };
 
 export const TOPUP_ACCREDITATION_WINDOW_TEXT = "5 a 20 minutos";

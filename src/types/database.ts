@@ -917,6 +917,12 @@ export type Database = {
         };
         Returns: Json;
       };
+      run_game_round_automation_safe: {
+        Args: {
+          p_metadata?: Json;
+        };
+        Returns: Json;
+      };
       purchase_bingo_boards: {
         Args: {
           p_quantity: number;

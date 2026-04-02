@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { uuidSchema } from "@/lib/validation/schemas/common";
+import { BOARD_STAKE_TIERS, BOARD_DEFAULT_STAKE_TIER } from "@/modules/game/domain/board.constants";
 
 const BOARD_ALLOWED_QUANTITIES = [1, 5, 25, 100] as const;
 
@@ -82,6 +83,12 @@ export const bingoGridSchema = z
 
 export const purchaseBoardsSchema = z.object({
   quantity: boardPurchaseQuantitySchema,
+  stakeTier: z
+    .enum(BOARD_STAKE_TIERS, {
+      required_error: "Debes seleccionar un nivel de apuesta.",
+      invalid_type_error: "Nivel de apuesta invalido."
+    })
+    .default(BOARD_DEFAULT_STAKE_TIER),
   requestRef: z.string().trim().min(1).max(120).optional()
 });
 

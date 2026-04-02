@@ -1,5 +1,6 @@
 import type { BoardPurchaseStatus } from "@/types/domain";
 import type { Json } from "@/types/database";
+import type { BOARD_STAKE_TIERS } from "@/modules/game/domain/board.constants";
 
 export type BingoGrid = [
   [number, number, number],
@@ -58,9 +59,12 @@ export type GameRoundSalesSummary = {
 
 export type PurchaseBoardsInput = {
   quantity: 1 | 5 | 25 | 100;
+  stakeTier?: BoardStakeTier;
   requestRef?: string;
   metadata?: Record<string, unknown>;
 };
+
+export type BoardStakeTier = (typeof BOARD_STAKE_TIERS)[number];
 
 export type FieldErrors = Record<string, string[] | undefined>;
 

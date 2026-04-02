@@ -4,7 +4,15 @@ import { useActionState, useEffect, useRef, useState } from "react";
 
 import { cn, formatDateTime } from "@/lib/utils";
 import { purchaseBoardsAction } from "@/modules/game/application";
-import { BOARD_ALLOWED_QUANTITIES, BOARD_UNIT_PRICE, INITIAL_GAME_FORM_STATE } from "@/modules/game/domain";
+import {
+  BOARD_ALLOWED_QUANTITIES,
+  BOARD_DEFAULT_STAKE_TIER,
+  BOARD_STAKE_CONFIG,
+  BOARD_STAKE_TIERS,
+  BOARD_UNIT_PRICE,
+  INITIAL_GAME_FORM_STATE,
+  type BoardStakeTier
+} from "@/modules/game/domain";
 import { BoardFieldError } from "@/modules/game/ui/board-field-error";
 import { BoardFormFeedback } from "@/modules/game/ui/board-form-feedback";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
@@ -33,6 +41,11 @@ export function BoardPurchaseForm({
   const isDisabled = isPending || isPurchaseBlocked || !upcomingGameId;
   const [showFeedback, setShowFeedback] = useState(false);
   const wasPendingRef = useRef(false);
+  const [selectedQuantity, setSelectedQuantity] = useState<number>(BOARD_ALLOWED_QUANTITIES[0]);
+  const [selectedStakeTier, setSelectedStakeTier] = useState<BoardStakeTier>(BOARD_DEFAULT_STAKE_TIER);
+
+  const selectedTierConfig = BOARD_STAKE_CONFIG[selectedStakeTier] ?? BOARD_STAKE_CONFIG.basic;
+  const selectedTotal = selectedQuantity * selectedTierConfig.unitPrice;
 
   useEffect(() => {
     const hasMessage = Boolean(state.message) && state.status !== "idle";
@@ -76,8 +89,6 @@ export function BoardPurchaseForm({
           Aqui para comprar las tablas
         </p>
         <form action={formAction} className="mt-2 space-y-2">
-          
-
           {isPurchaseBlocked ? (
             <p className="text-sm font-semibold text-red-600">
               {blockedReason ??
@@ -85,12 +96,36 @@ export function BoardPurchaseForm({
             </p>
           ) : null}
 
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div>
+              <select
+                id="stakeTier-embedded"
+                name="stakeTier"
+                value={selectedStakeTier}
+                onChange={(event) => setSelectedStakeTier(event.target.value as BoardStakeTier)}
+                disabled={isDisabled}
+                className={cn(
+                  "h-11 w-full rounded-xl border-2 border-black bg-white px-3 py-2 text-sm font-semibold outline-none",
+                  isDisabled ? "cursor-not-allowed opacity-60" : null
+                )}
+              >
+                {BOARD_STAKE_TIERS.map((tier) => {
+                  const option = BOARD_STAKE_CONFIG[tier];
+                  return (
+                    <option key={tier} value={tier}>
+                      {option.label} - ${option.unitPrice.toFixed(2)}/tabla
+                    </option>
+                  );
+                })}
+              </select>
+              <BoardFieldError errors={state.fieldErrors?.stakeTier} />
+            </div>
             <div>
               <select
                 id="quantity"
                 name="quantity"
-                defaultValue={String(BOARD_ALLOWED_QUANTITIES[0])}
+                value={String(selectedQuantity)}
+                onChange={(event) => setSelectedQuantity(Number(event.target.value))}
                 disabled={isDisabled}
                 className={cn(
                   "h-11 w-full rounded-xl border-2 border-black bg-white px-3 py-2 text-sm font-semibold outline-none",
@@ -99,12 +134,20 @@ export function BoardPurchaseForm({
               >
                 {BOARD_ALLOWED_QUANTITIES.map((quantity) => (
                   <option key={quantity} value={quantity}>
-                    {quantity} tabla(s) - ${(quantity * BOARD_UNIT_PRICE).toFixed(2)}
+                    {quantity} tabla(s)
                   </option>
                 ))}
               </select>
               <BoardFieldError errors={state.fieldErrors?.quantity} />
             </div>
+          </div>
+
+          <div className="rounded-lg border-2 border-black bg-white px-3 py-2 text-xs font-semibold">
+            Total: ${selectedTotal.toFixed(2)} · Premio base por linea x
+            {selectedTierConfig.basePrizeMultiplier.toFixed(1)}
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
             <Button
               type="submit"
               disabled={isDisabled}
@@ -128,8 +171,11 @@ export function BoardPurchaseForm({
       <CardHeader>
         <CardTitle>Comprar tablas</CardTitle>
         <CardDescription>
-          Cada tabla cuesta ${BOARD_UNIT_PRICE.toFixed(2)}. Puedes comprar 1, 5, 25 o 100 tablas por
-          transaccion. La compra se asigna automaticamente a la proxima partida programada.
+          Puedes comprar por niveles de riesgo: Basico (${BOARD_UNIT_PRICE.toFixed(2)}), Plus ($
+          {BOARD_STAKE_CONFIG.plus.unitPrice.toFixed(2)}), Pro ($
+          {BOARD_STAKE_CONFIG.pro.unitPrice.toFixed(2)}) y Max ($
+          {BOARD_STAKE_CONFIG.max.unitPrice.toFixed(2)}). La compra se asigna automaticamente a la
+          proxima partida programada.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -158,23 +204,63 @@ export function BoardPurchaseForm({
           ) : null}
 
           <div className="space-y-1.5">
+            <label htmlFor="stakeTier" className="text-sm font-medium">
+              Nivel de apuesta
+            </label>
+            <select
+              id="stakeTier"
+              name="stakeTier"
+              value={selectedStakeTier}
+              onChange={(event) => setSelectedStakeTier(event.target.value as BoardStakeTier)}
+              disabled={isDisabled}
+              className="flex h-10 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-primary/30"
+            >
+              {BOARD_STAKE_TIERS.map((tier) => {
+                const option = BOARD_STAKE_CONFIG[tier];
+                return (
+                  <option key={tier} value={tier}>
+                    {option.label} - ${option.unitPrice.toFixed(2)}/tabla · premio x
+                    {option.basePrizeMultiplier.toFixed(1)}
+                  </option>
+                );
+              })}
+            </select>
+            <BoardFieldError errors={state.fieldErrors?.stakeTier} />
+          </div>
+
+          <div className="space-y-1.5">
             <label htmlFor="quantity" className="text-sm font-medium">
               Cantidad de tablas
             </label>
             <select
               id="quantity"
               name="quantity"
-              defaultValue={String(BOARD_ALLOWED_QUANTITIES[0])}
+              value={String(selectedQuantity)}
+              onChange={(event) => setSelectedQuantity(Number(event.target.value))}
               disabled={isDisabled}
               className="flex h-10 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-primary/30"
             >
               {BOARD_ALLOWED_QUANTITIES.map((quantity) => (
                 <option key={quantity} value={quantity}>
-                  {quantity} tabla(s) - ${(quantity * BOARD_UNIT_PRICE).toFixed(2)}
+                  {quantity} tabla(s)
                 </option>
               ))}
             </select>
             <BoardFieldError errors={state.fieldErrors?.quantity} />
+          </div>
+
+          <div className="rounded-xl border border-border bg-card p-3 text-sm">
+            <p className="font-semibold">
+              Total a pagar: ${selectedTotal.toFixed(2)}
+            </p>
+            <p className="text-muted-foreground">
+              Premio base por linea: x{selectedTierConfig.basePrizeMultiplier.toFixed(1)} sobre el
+              valor base de la partida.
+            </p>
+            <p className="text-muted-foreground">
+              Cashback anti-frustracion: {Math.round(selectedTierConfig.cashbackRate * 100)}% para
+              compras de 25+ tablas sin premio en la ronda.
+            </p>
           </div>
 
           <BoardFormFeedback state={feedbackState} />

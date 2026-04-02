@@ -3,11 +3,16 @@ import "server-only";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { bingoGridSchema, boardHistoryQuerySchema, purchaseBoardsSchema } from "@/lib/validation";
 import type {
+  BoardStakeTier,
   BingoBoardRow,
   BoardPurchaseWithBoards,
   GameRoundSalesSummary,
   PurchaseBoardRpcRow,
   PurchaseBoardsInput
+} from "@/modules/game/domain";
+import {
+  BOARD_DEFAULT_STAKE_TIER,
+  BOARD_STAKE_CONFIG
 } from "@/modules/game/domain";
 import {
   listBoardPurchasesByGameIds,
@@ -54,6 +59,14 @@ function normalizeGameError(error: { message?: string } | null | undefined, fall
     return "La asignacion de partida es automatica. No debes seleccionar manualmente la ronda.";
   }
 
+  if (message.includes("INVALID_STAKE_TIER")) {
+    return "Nivel de apuesta invalido. Elige Basico, Plus, Pro o Max.";
+  }
+
+  if (message.includes("INVALID_STAKE_CONFIGURATION")) {
+    return "La configuracion de niveles no es valida. Contacta al administrador.";
+  }
+
   return message;
 }
 
@@ -88,10 +101,13 @@ export async function purchaseBoardsForUser(
 
   const { data, error } = await purchaseBingoBoards(supabase, {
     quantity: parsed.data.quantity as PurchaseBoardsInput["quantity"],
+    stakeTier: (parsed.data.stakeTier ?? BOARD_DEFAULT_STAKE_TIER) as BoardStakeTier,
     requestRef: parsed.data.requestRef,
     metadata: {
       channel: "web",
-      initiated_by: user.id
+      initiated_by: user.id,
+      stake_tier: parsed.data.stakeTier ?? BOARD_DEFAULT_STAKE_TIER,
+      stake_config: BOARD_STAKE_CONFIG[parsed.data.stakeTier ?? BOARD_DEFAULT_STAKE_TIER]
     }
   });
 
